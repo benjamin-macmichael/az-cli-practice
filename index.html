@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AZ CLI Typing Quiz</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f0f0f; --surface: #1a1a1a; --border: #2a2a2a;
+    --text: #e0e0e0; --muted: #555; --correct: #4ec9a0;
+    --incorrect: #f47067; --pending: #444; --cursor: #e0e0e0;
+    --accent: #4a9eff; --tag-bg: #1e2a3a; --tag-text: #4a9eff;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+  .container { width: 100%; max-width: 820px; }
+  header { text-align: center; margin-bottom: 36px; }
+  header h1 { font-size: 22px; font-weight: 500; margin-bottom: 6px; }
+  header p { font-size: 14px; color: var(--muted); }
+  .filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px; justify-content: center; }
+  .filter-btn { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; transition: all .15s; }
+  .filter-btn:hover { color: var(--text); border-color: #444; }
+  .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .stats { display: flex; gap: 10px; margin-bottom: 20px; }
+  .stat { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+  .stat-num { font-size: 22px; font-weight: 500; color: var(--text); }
+  .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .rank-val { font-size: 13px; font-weight: 500; color: var(--accent); line-height: 1.3; }
+  .progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 24px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .4s ease; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; margin-bottom: 20px; }
+  .card-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .card-tag { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; background: var(--tag-bg); color: var(--tag-text); }
+  .card-num { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .card-desc { font-size: 17px; line-height: 1.6; color: var(--text); margin-bottom: 28px; }
+  .target { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 16px; letter-spacing: 0.03em; margin-bottom: 20px; min-height: 32px; line-height: 1.9; display: flex; flex-wrap: wrap; }
+  .target span { color: var(--pending); transition: color .06s; position: relative; white-space: pre; }
+  .target span.correct { color: var(--correct); }
+  .target span.incorrect { color: var(--incorrect); text-decoration: underline; text-decoration-color: var(--incorrect); }
+  .target span.cursor::after { content: ''; position: absolute; bottom: 2px; left: 0; width: 100%; height: 2px; background: var(--cursor); animation: blink .9s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .typing-input { width: 100%; background: #111; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 15px; color: var(--text); outline: none; transition: border-color .15s; caret-color: var(--accent); }
+  .typing-input:focus { border-color: #444; }
+  .typing-input.error { border-color: var(--incorrect); }
+  .typing-input.complete { border-color: var(--correct); }
+  .input-hint { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 18px; }
+  .input-hint.error { color: var(--incorrect); }
+  .input-hint.success { color: var(--correct); }
+  .actions { display: flex; gap: 10px; margin-top: 20px; align-items: center; }
+  .btn { padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s; }
+  .btn:hover { border-color: #555; background: #222; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3a8eef; border-color: #3a8eef; }
+  .btn-skip { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .btn-hide { font-size: 12px; color: var(--muted); }
+  .target.hidden span { color: transparent; background: var(--pending); border-radius: 2px; user-select: none; }
+  .target.hidden span.correct { background: var(--correct); color: transparent; }
+  .target.hidden span.incorrect { background: var(--incorrect); color: transparent; text-decoration: none; }
+  .done { text-align: center; padding: 48px 0; }
+  .done h2 { font-size: 24px; font-weight: 500; margin-bottom: 10px; }
+  .done p { color: var(--muted); font-size: 15px; margin-bottom: 28px; }
+  .rank-up { position: fixed; top: 32px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #fff; font-size: 14px; font-weight: 500; padding: 10px 24px; border-radius: 24px; opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 999; }
+  .rank-up.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="rank-up" id="rank-up"></div>
+<div class="container">
+  <header>
+    <h1>AZ CLI Typing Practice</h1>
+    <p>Read the description — type the full command with flags</p>
+  </header>
+  <div class="filter-bar" id="filter-bar"></div>
+  <div class="stats">
+    <div class="stat"><div class="stat-num" id="s-done">0</div><div class="stat-label">Completed</div></div>
+    <div class="stat"><div class="stat-num" id="s-rem">0</div><div class="stat-label">Remaining</div></div>
+    <div class="stat"><div class="rank-val" id="s-rank">Intern</div><div class="stat-label">Rank</div></div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="prog"></div></div>
+  <div id="quiz-area">
+    <div class="card">
+      <div class="card-meta">
+        <span class="card-tag" id="card-tag"></span>
+        <span class="card-num" id="card-num"></span>
+      </div>
+      <div class="card-desc" id="card-desc"></div>
+      <div class="target" id="target"></div>
+      <input class="typing-input" id="typing-input" type="text" placeholder="Type the full command..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <div class="input-hint" id="input-hint"></div>
+      <div class="actions">
+        <button class="btn btn-primary" id="next-btn" style="display:none" onclick="nextCard()">Next →</button>
+        <button class="btn btn-hide" id="hide-btn" onclick="toggleHide()">Hide answer</button>
+        <button class="btn btn-skip" onclick="skipCard()">Skip →</button>
+      </div>
+    </div>
+  </div>
+  <div class="done" id="done-screen" style="display:none">
+    <h2>✓ Deck complete</h2>
+    <p id="done-msg"></p>
+    <button class="btn btn-primary" onclick="resetDeck()">Restart</button>
+  </div>
+</div>
+<script>
+const ranks = [
+  { min:0,   title:"Intern" },
+  { min:25,  title:"Junior Dev" },
+  { min:50,  title:"Mid-level Dev" },
+  { min:75,  title:"Senior Dev" },
+  { min:100, title:"Staff Engineer" },
+  { min:125, title:"Principal Engineer" },
+  { min:150, title:"Distinguished Engineer" },
+  { min:175, title:"Tech Lead" },
+  { min:200, title:"10x Developer 🚀" },
+];
+
+function getRank(n) { return [...ranks].reverse().find(r => n >= r.min).title; }
+
+const allCards = [
+  // Auth
+  { cat:"Auth", desc:"Log in to Azure — opens a browser window to authenticate your account.", cmd:"az login" },
+  { cat:"Auth", desc:"List all subscriptions available to your logged-in account.", cmd:"az account list" },
+  { cat:"Auth", desc:"Set your active subscription to one named 'DevSubscription'.", cmd:"az account set --subscription DevSubscription" },
+  { cat:"Auth", desc:"Show details of the currently active subscription.", cmd:"az account show" },
+  { cat:"Auth", desc:"Log out of Azure and clear cached credentials.", cmd:"az logout" },
+  { cat:"Auth", desc:"Set default location to eastus and default resource group to prod-rg.", cmd:"az configure --defaults location=eastus group=prod-rg" },
+
+  // Resource Groups
+  { cat:"Resource Groups", desc:"Create a resource group named 'prod-rg' in East US.", cmd:"az group create --name prod-rg --location eastus" },
+  { cat:"Resource Groups", desc:"List all resource groups in your active subscription.", cmd:"az group list" },
+  { cat:"Resource Groups", desc:"Delete a resource group named 'old-rg' and everything inside it.", cmd:"az group delete --name old-rg" },
+  { cat:"Resource Groups", desc:"Show details for a specific resource group named 'prod-rg'.", cmd:"az group show --name prod-rg" },
+  { cat:"Resource Groups", desc:"Check whether a resource group named 'prod-rg' exists.", cmd:"az group exists --name prod-rg" },
+  { cat:"Resource Groups", desc:"Update the tags on resource group 'prod-rg' with env=production.", cmd:"az group update --name prod-rg --tags env=production" },
+
+  // VMs
+  { cat:"VMs", desc:"Create a VM named 'web-vm' in resource group 'prod-rg', using Ubuntu, size Standard_B2s, with admin user 'azureuser'.", cmd:"az vm create --name web-vm --resource-group prod-rg --image Ubuntu2204 --size Standard_B2s --admin-username azureuser" },
+  { cat:"VMs", desc:"List all virtual machines in resource group 'prod-rg'.", cmd:"az vm list --resource-group prod-rg" },
+  { cat:"VMs", desc:"Start a VM named 'web-vm' in resource group 'prod-rg'.", cmd:"az vm start --name web-vm --resource-group prod-rg" },
+  { cat:"VMs", desc:"Stop and deallocate a VM named 'web-vm' in resource group 'prod-rg'.", cmd:"az vm stop --name web-vm --resource-group prod-rg" },
+  { cat:"VMs", desc:"Delete a VM named 'web-vm' from resource group 'prod-rg'.", cmd:"az vm delete --name web-vm --resource-group prod-rg" },
+  { cat:"VMs", desc:"Show the current size and status of VM 'web-vm' in resource group 'prod-rg'.", cmd:"az vm show --name web-vm --resource-group prod-rg" },
+  { cat:"VMs", desc:"Resize VM 'web-vm' in resource group 'prod-rg' to Standard_D4s_v3.", cmd:"az vm resize --name web-vm --resource-group prod-rg --size Standard_D4s_v3" },
+  { cat:"VMs", desc:"Open port 443 on VM 'web-vm' in resource group 'prod-rg'.", cmd:"az vm open-port --name web-vm --resource-group prod-rg --port 443" },
+  { cat:"VMs", desc:"Run a shell script on VM 'web-vm' in resource group 'prod-rg' to check disk usage.", cmd:"az vm run-command invoke --name web-vm --resource-group prod-rg --command-id RunShellScript --scripts df -h" },
+  { cat:"VMs", desc:"Restart VM 'web-vm' in resource group 'prod-rg'.", cmd:"az vm restart --name web-vm --resource-group prod-rg" },
+  { cat:"VMs", desc:"List available VM sizes in the East US region.", cmd:"az vm list-sizes --location eastus" },
+  { cat:"VMs", desc:"Capture a generalized image of VM 'web-vm' in resource group 'prod-rg'.", cmd:"az vm capture --name web-vm --resource-group prod-rg --vhd-name-prefix myimage" },
+  { cat:"VMs", desc:"List all IP addresses associated with VM 'web-vm' in resource group 'prod-rg'.", cmd:"az vm list-ip-addresses --name web-vm --resource-group prod-rg" },
+
+  // Networking
+  { cat:"Networking", desc:"Create a virtual network named 'prod-vnet' in resource group 'prod-rg' with address prefix 10.0.0.0/16.", cmd:"az network vnet create --name prod-vnet --resource-group prod-rg --address-prefix 10.0.0.0/16" },
+  { cat:"Networking", desc:"Create a subnet named 'app-subnet' inside 'prod-vnet' in resource group 'prod-rg' with prefix 10.0.1.0/24.", cmd:"az network vnet subnet create --name app-subnet --vnet-name prod-vnet --resource-group prod-rg --address-prefix 10.0.1.0/24" },
+  { cat:"Networking", desc:"Create a network security group named 'web-nsg' in resource group 'prod-rg'.", cmd:"az network nsg create --name web-nsg --resource-group prod-rg" },
+  { cat:"Networking", desc:"Add an inbound NSG rule to 'web-nsg' allowing HTTPS traffic on port 443.", cmd:"az network nsg rule create --name allow-https --nsg-name web-nsg --resource-group prod-rg --priority 100 --destination-port-ranges 443 --access Allow" },
+  { cat:"Networking", desc:"List all virtual networks in resource group 'prod-rg'.", cmd:"az network vnet list --resource-group prod-rg" },
+  { cat:"Networking", desc:"Create a public IP address named 'prod-pip' in resource group 'prod-rg' with static allocation.", cmd:"az network public-ip create --name prod-pip --resource-group prod-rg --allocation-method Static" },
+  { cat:"Networking", desc:"Create a DNS record set of type A named 'api' in zone 'myapp.com' in resource group 'prod-rg'.", cmd:"az network dns record-set a create --name api --zone-name myapp.com --resource-group prod-rg" },
+  { cat:"Networking", desc:"List all subnets inside virtual network 'prod-vnet' in resource group 'prod-rg'.", cmd:"az network vnet subnet list --vnet-name prod-vnet --resource-group prod-rg" },
+  { cat:"Networking", desc:"Show details of public IP 'prod-pip' in resource group 'prod-rg'.", cmd:"az network public-ip show --name prod-pip --resource-group prod-rg" },
+  { cat:"Networking", desc:"Create a load balancer named 'prod-lb' in resource group 'prod-rg' with a public IP named 'prod-pip'.", cmd:"az network lb create --name prod-lb --resource-group prod-rg --public-ip-address prod-pip" },
+  { cat:"Networking", desc:"Create a private endpoint named 'prod-pe' in resource group 'prod-rg' inside subnet 'app-subnet'.", cmd:"az network private-endpoint create --name prod-pe --resource-group prod-rg --vnet-name prod-vnet --subnet app-subnet --private-connection-resource-id myresourceid --connection-name myconn" },
+  { cat:"Networking", desc:"List all NSG rules for security group 'web-nsg' in resource group 'prod-rg'.", cmd:"az network nsg rule list --nsg-name web-nsg --resource-group prod-rg" },
+
+  // Storage
+  { cat:"Storage", desc:"Create a storage account named 'prodstorageacct' in resource group 'prod-rg', located in East US, with Standard LRS SKU.", cmd:"az storage account create --name prodstorageacct --resource-group prod-rg --location eastus --sku Standard_LRS" },
+  { cat:"Storage", desc:"Create a blob container named 'uploads' inside storage account 'prodstorageacct'.", cmd:"az storage container create --name uploads --account-name prodstorageacct" },
+  { cat:"Storage", desc:"List all containers in storage account 'prodstorageacct'.", cmd:"az storage container list --account-name prodstorageacct" },
+  { cat:"Storage", desc:"Upload a local file named 'app.zip' to blob container 'uploads' in storage account 'prodstorageacct'.", cmd:"az storage blob upload --file app.zip --container-name uploads --account-name prodstorageacct" },
+  { cat:"Storage", desc:"List all blobs inside container 'uploads' in storage account 'prodstorageacct'.", cmd:"az storage blob list --container-name uploads --account-name prodstorageacct" },
+  { cat:"Storage", desc:"Delete a blob named 'old-build.zip' from container 'uploads' in storage account 'prodstorageacct'.", cmd:"az storage blob delete --name old-build.zip --container-name uploads --account-name prodstorageacct" },
+  { cat:"Storage", desc:"Show the primary connection string for storage account 'prodstorageacct'.", cmd:"az storage account show-connection-string --name prodstorageacct --resource-group prod-rg" },
+  { cat:"Storage", desc:"Generate a SAS token for blob container 'uploads' in storage account 'prodstorageacct' expiring 2025-12-31.", cmd:"az storage container generate-sas --name uploads --account-name prodstorageacct --expiry 2025-12-31 --permissions r" },
+  { cat:"Storage", desc:"Show details of storage account 'prodstorageacct' in resource group 'prod-rg'.", cmd:"az storage account show --name prodstorageacct --resource-group prod-rg" },
+  { cat:"Storage", desc:"Delete storage account 'prodstorageacct' from resource group 'prod-rg'.", cmd:"az storage account delete --name prodstorageacct --resource-group prod-rg" },
+  { cat:"Storage", desc:"Enable static website hosting on storage account 'prodstorageacct'.", cmd:"az storage blob service-properties update --account-name prodstorageacct --static-website --index-document index.html" },
+
+  // App Services
+  { cat:"App Services", desc:"Create a web app named 'my-web-app' in resource group 'prod-rg' using plan 'my-plan' with Node.js 18 runtime.", cmd:"az webapp create --name my-web-app --resource-group prod-rg --plan my-plan --runtime NODE:18" },
+  { cat:"App Services", desc:"List all web apps in resource group 'prod-rg'.", cmd:"az webapp list --resource-group prod-rg" },
+  { cat:"App Services", desc:"Stream live logs from web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp log tail --name my-web-app --resource-group prod-rg" },
+  { cat:"App Services", desc:"Set environment variable 'NODE_ENV' to 'production' on web app 'my-web-app'.", cmd:"az webapp config appsettings set --name my-web-app --resource-group prod-rg --settings NODE_ENV=production" },
+  { cat:"App Services", desc:"Restart web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp restart --name my-web-app --resource-group prod-rg" },
+  { cat:"App Services", desc:"Deploy a zip file named 'app.zip' to web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp deployment source config-zip --name my-web-app --resource-group prod-rg --src app.zip" },
+  { cat:"App Services", desc:"Create an App Service plan named 'my-plan' in resource group 'prod-rg' with Standard S1 SKU.", cmd:"az appservice plan create --name my-plan --resource-group prod-rg --sku S1" },
+  { cat:"App Services", desc:"List all app settings for web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp config appsettings list --name my-web-app --resource-group prod-rg" },
+  { cat:"App Services", desc:"Stop web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp stop --name my-web-app --resource-group prod-rg" },
+  { cat:"App Services", desc:"Start web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp start --name my-web-app --resource-group prod-rg" },
+  { cat:"App Services", desc:"Show the default hostname and state of web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp show --name my-web-app --resource-group prod-rg" },
+  { cat:"App Services", desc:"Delete web app 'my-web-app' from resource group 'prod-rg'.", cmd:"az webapp delete --name my-web-app --resource-group prod-rg" },
+  { cat:"App Services", desc:"Configure deployment from a GitHub repo for web app 'my-web-app' on branch 'main'.", cmd:"az webapp deployment source config --name my-web-app --resource-group prod-rg --repo-url https://github.com/myorg/myrepo --branch main" },
+
+  // Functions
+  { cat:"Functions", desc:"Create a Function App named 'prod-funcapp' in resource group 'prod-rg' using storage account 'prodstorageacct' with Node.js 18 runtime.", cmd:"az functionapp create --name prod-funcapp --resource-group prod-rg --storage-account prodstorageacct --runtime node --runtime-version 18 --consumption-plan-location eastus" },
+  { cat:"Functions", desc:"List all Function Apps in resource group 'prod-rg'.", cmd:"az functionapp list --resource-group prod-rg" },
+  { cat:"Functions", desc:"Restart Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp restart --name prod-funcapp --resource-group prod-rg" },
+  { cat:"Functions", desc:"Set app setting 'QUEUE_CONNECTION' on Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp config appsettings set --name prod-funcapp --resource-group prod-rg --settings QUEUE_CONNECTION=myvalue" },
+  { cat:"Functions", desc:"Stream live logs from Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp log tail --name prod-funcapp --resource-group prod-rg" },
+  { cat:"Functions", desc:"Delete Function App 'prod-funcapp' from resource group 'prod-rg'.", cmd:"az functionapp delete --name prod-funcapp --resource-group prod-rg" },
+  { cat:"Functions", desc:"Show details of Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp show --name prod-funcapp --resource-group prod-rg" },
+  { cat:"Functions", desc:"Stop Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp stop --name prod-funcapp --resource-group prod-rg" },
+  { cat:"Functions", desc:"Start Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp start --name prod-funcapp --resource-group prod-rg" },
+  { cat:"Functions", desc:"List all functions inside Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp function list --name prod-funcapp --resource-group prod-rg" },
+
+  // Container Instances
+  { cat:"Container Instances", desc:"Create a container instance named 'api-container' in resource group 'prod-rg' using image 'nginx' with 1 CPU and 1.5GB memory.", cmd:"az container create --name api-container --resource-group prod-rg --image nginx --cpu 1 --memory 1.5" },
+  { cat:"Container Instances", desc:"List all container instances in resource group 'prod-rg'.", cmd:"az container list --resource-group prod-rg" },
+  { cat:"Container Instances", desc:"Show logs from container instance 'api-container' in resource group 'prod-rg'.", cmd:"az container logs --name api-container --resource-group prod-rg" },
+  { cat:"Container Instances", desc:"Delete container instance 'api-container' from resource group 'prod-rg'.", cmd:"az container delete --name api-container --resource-group prod-rg" },
+  { cat:"Container Instances", desc:"Show the status and IP address of container instance 'api-container' in resource group 'prod-rg'.", cmd:"az container show --name api-container --resource-group prod-rg" },
+  { cat:"Container Instances", desc:"Restart container instance 'api-container' in resource group 'prod-rg'.", cmd:"az container restart --name api-container --resource-group prod-rg" },
+  { cat:"Container Instances", desc:"Execute a bash shell inside container instance 'api-container' in resource group 'prod-rg'.", cmd:"az container exec --name api-container --resource-group prod-rg --exec-command /bin/bash" },
+
+  // ACR
+  { cat:"ACR", desc:"Create a container registry named 'prodregistry' in resource group 'prod-rg' with Standard SKU.", cmd:"az acr create --name prodregistry --resource-group prod-rg --sku Standard" },
+  { cat:"ACR", desc:"Build a Docker image named 'myapp' tagged 'v1.0' from the current directory and push it to registry 'prodregistry'.", cmd:"az acr build --registry prodregistry --image myapp:v1.0 ." },
+  { cat:"ACR", desc:"Log your local Docker client in to registry 'prodregistry'.", cmd:"az acr login --name prodregistry" },
+  { cat:"ACR", desc:"List all image repositories stored in registry 'prodregistry'.", cmd:"az acr repository list --name prodregistry" },
+  { cat:"ACR", desc:"List all tags for image 'myapp' in registry 'prodregistry'.", cmd:"az acr repository show-tags --name prodregistry --repository myapp" },
+  { cat:"ACR", desc:"Delete image tag 'myapp:v0.9' from registry 'prodregistry'.", cmd:"az acr repository delete --name prodregistry --image myapp:v0.9" },
+  { cat:"ACR", desc:"Enable the admin user on registry 'prodregistry' to allow password-based login.", cmd:"az acr update --name prodregistry --admin-enabled true" },
+  { cat:"ACR", desc:"Show the login server URL and SKU for registry 'prodregistry'.", cmd:"az acr show --name prodregistry --resource-group prod-rg" },
+  { cat:"ACR", desc:"Run a quick task to build and test an image in registry 'prodregistry' without a Dockerfile.", cmd:"az acr run --registry prodregistry --cmd myapp:v1.0 /dev/null" },
+  { cat:"ACR", desc:"List all registries in resource group 'prod-rg'.", cmd:"az acr list --resource-group prod-rg" },
+  { cat:"ACR", desc:"Show the admin credentials for registry 'prodregistry'.", cmd:"az acr credential show --name prodregistry" },
+
+  // AKS
+  { cat:"AKS", desc:"Create an AKS cluster named 'prod-cluster' in resource group 'prod-rg' with 3 nodes.", cmd:"az aks create --name prod-cluster --resource-group prod-rg --node-count 3" },
+  { cat:"AKS", desc:"Download kubeconfig credentials for cluster 'prod-cluster' in resource group 'prod-rg' so kubectl can connect.", cmd:"az aks get-credentials --name prod-cluster --resource-group prod-rg" },
+  { cat:"AKS", desc:"Scale cluster 'prod-cluster' in resource group 'prod-rg' to 5 nodes.", cmd:"az aks scale --name prod-cluster --resource-group prod-rg --node-count 5" },
+  { cat:"AKS", desc:"Upgrade cluster 'prod-cluster' in resource group 'prod-rg' to Kubernetes version 1.29.0.", cmd:"az aks upgrade --name prod-cluster --resource-group prod-rg --kubernetes-version 1.29.0" },
+  { cat:"AKS", desc:"Enable cluster autoscaler on 'prod-cluster' with a minimum of 2 nodes and maximum of 10.", cmd:"az aks update --name prod-cluster --resource-group prod-rg --enable-cluster-autoscaler --min-count 2 --max-count 10" },
+  { cat:"AKS", desc:"Attach container registry 'prodregistry' to AKS cluster 'prod-cluster'.", cmd:"az aks update --name prod-cluster --resource-group prod-rg --attach-acr prodregistry" },
+  { cat:"AKS", desc:"List all AKS clusters in resource group 'prod-rg'.", cmd:"az aks list --resource-group prod-rg" },
+  { cat:"AKS", desc:"Show available Kubernetes versions for upgrading cluster 'prod-cluster' in resource group 'prod-rg'.", cmd:"az aks get-upgrades --name prod-cluster --resource-group prod-rg" },
+  { cat:"AKS", desc:"Stop cluster 'prod-cluster' in resource group 'prod-rg' to save costs.", cmd:"az aks stop --name prod-cluster --resource-group prod-rg" },
+  { cat:"AKS", desc:"Start a previously stopped cluster 'prod-cluster' in resource group 'prod-rg'.", cmd:"az aks start --name prod-cluster --resource-group prod-rg" },
+  { cat:"AKS", desc:"Show details of AKS cluster 'prod-cluster' in resource group 'prod-rg'.", cmd:"az aks show --name prod-cluster --resource-group prod-rg" },
+  { cat:"AKS", desc:"Delete AKS cluster 'prod-cluster' from resource group 'prod-rg'.", cmd:"az aks delete --name prod-cluster --resource-group prod-rg" },
+  { cat:"AKS", desc:"Add a new node pool named 'gpupool' to cluster 'prod-cluster' in resource group 'prod-rg' with 2 nodes.", cmd:"az aks nodepool add --name gpupool --cluster-name prod-cluster --resource-group prod-rg --node-count 2" },
+  { cat:"AKS", desc:"List all node pools in AKS cluster 'prod-cluster' in resource group 'prod-rg'.", cmd:"az aks nodepool list --cluster-name prod-cluster --resource-group prod-rg" },
+
+  // Key Vault
+  { cat:"Key Vault", desc:"Create a Key Vault named 'prod-keyvault' in resource group 'prod-rg' located in East US.", cmd:"az keyvault create --name prod-keyvault --resource-group prod-rg --location eastus" },
+  { cat:"Key Vault", desc:"Store a secret named 'DatabasePassword' with value 'P@ssword123' in Key Vault 'prod-keyvault'.", cmd:"az keyvault secret set --vault-name prod-keyvault --name DatabasePassword --value P@ssword123" },
+  { cat:"Key Vault", desc:"Retrieve the secret named 'DatabasePassword' from Key Vault 'prod-keyvault'.", cmd:"az keyvault secret show --vault-name prod-keyvault --name DatabasePassword" },
+  { cat:"Key Vault", desc:"List all secret names stored in Key Vault 'prod-keyvault'.", cmd:"az keyvault secret list --vault-name prod-keyvault" },
+  { cat:"Key Vault", desc:"Delete the secret named 'OldApiKey' from Key Vault 'prod-keyvault'.", cmd:"az keyvault secret delete --vault-name prod-keyvault --name OldApiKey" },
+  { cat:"Key Vault", desc:"Grant a service principal with object ID 'abc-123' read access to secrets in Key Vault 'prod-keyvault'.", cmd:"az keyvault set-policy --name prod-keyvault --object-id abc-123 --secret-permissions get list" },
+  { cat:"Key Vault", desc:"Show details and access policies for Key Vault 'prod-keyvault'.", cmd:"az keyvault show --name prod-keyvault --resource-group prod-rg" },
+  { cat:"Key Vault", desc:"List all Key Vaults in resource group 'prod-rg'.", cmd:"az keyvault list --resource-group prod-rg" },
+  { cat:"Key Vault", desc:"Recover a soft-deleted Key Vault named 'prod-keyvault' in East US.", cmd:"az keyvault recover --name prod-keyvault --location eastus" },
+  { cat:"Key Vault", desc:"Create a certificate named 'prod-cert' in Key Vault 'prod-keyvault' using the default policy.", cmd:"az keyvault certificate create --vault-name prod-keyvault --name prod-cert --policy @policy.json" },
+
+  // Service Bus
+  { cat:"Service Bus", desc:"Create a Service Bus namespace named 'prod-servicebus' in resource group 'prod-rg' with Standard SKU.", cmd:"az servicebus namespace create --name prod-servicebus --resource-group prod-rg --sku Standard" },
+  { cat:"Service Bus", desc:"Create a queue named 'order-queue' inside Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus queue create --name order-queue --namespace-name prod-servicebus --resource-group prod-rg" },
+  { cat:"Service Bus", desc:"List all queues in Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus queue list --namespace-name prod-servicebus --resource-group prod-rg" },
+  { cat:"Service Bus", desc:"Create a topic named 'notifications' inside Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus topic create --name notifications --namespace-name prod-servicebus --resource-group prod-rg" },
+  { cat:"Service Bus", desc:"Create a subscription named 'email-sub' on topic 'notifications' in Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus topic subscription create --name email-sub --topic-name notifications --namespace-name prod-servicebus --resource-group prod-rg" },
+  { cat:"Service Bus", desc:"Show the primary connection string for Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus namespace authorization-rule keys list --name RootManageSharedAccessKey --namespace-name prod-servicebus --resource-group prod-rg" },
+  { cat:"Service Bus", desc:"Delete queue 'order-queue' from Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus queue delete --name order-queue --namespace-name prod-servicebus --resource-group prod-rg" },
+  { cat:"Service Bus", desc:"List all topics in Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus topic list --namespace-name prod-servicebus --resource-group prod-rg" },
+
+  // Pipelines
+  { cat:"Pipelines", desc:"Set default Azure DevOps org to 'https://dev.azure.com/myorg' and project to 'myproject'.", cmd:"az devops configure --defaults organization=https://dev.azure.com/myorg project=myproject" },
+  { cat:"Pipelines", desc:"Create a pipeline named 'deploy-pipeline' from YAML file 'pipelines/deploy.yml'.", cmd:"az pipelines create --name deploy-pipeline --yml-path pipelines/deploy.yml" },
+  { cat:"Pipelines", desc:"Manually trigger a run of pipeline 'deploy-pipeline' on branch 'main'.", cmd:"az pipelines run --name deploy-pipeline --branch main" },
+  { cat:"Pipelines", desc:"List all pipelines in the current default project.", cmd:"az pipelines list" },
+  { cat:"Pipelines", desc:"List recent runs for pipeline 'deploy-pipeline'.", cmd:"az pipelines runs list --pipeline-name deploy-pipeline" },
+  { cat:"Pipelines", desc:"Add a secret variable named 'DB_PASSWORD' to pipeline 'deploy-pipeline'.", cmd:"az pipelines variable create --name DB_PASSWORD --pipeline-name deploy-pipeline --secret true" },
+  { cat:"Pipelines", desc:"Show details for a specific pipeline run with ID '42'.", cmd:"az pipelines runs show --id 42" },
+  { cat:"Pipelines", desc:"List all Azure DevOps projects in the current organization.", cmd:"az devops project list" },
+  { cat:"Pipelines", desc:"Create a new Azure DevOps project named 'myproject' with Git version control.", cmd:"az devops project create --name myproject --source-control git" },
+  { cat:"Pipelines", desc:"List all variable groups in the current Azure DevOps project.", cmd:"az pipelines variable-group list" },
+  { cat:"Pipelines", desc:"Delete pipeline variable 'DB_PASSWORD' from pipeline 'deploy-pipeline'.", cmd:"az pipelines variable delete --name DB_PASSWORD --pipeline-name deploy-pipeline" },
+  { cat:"Pipelines", desc:"Show details of Azure DevOps project 'myproject'.", cmd:"az devops project show --project myproject" },
+
+  // RBAC
+  { cat:"RBAC", desc:"Assign the 'Contributor' role to user 'user@company.com' scoped to resource group 'prod-rg'.", cmd:"az role assignment create --assignee user@company.com --role Contributor --resource-group prod-rg" },
+  { cat:"RBAC", desc:"List all role assignments in resource group 'prod-rg'.", cmd:"az role assignment list --resource-group prod-rg" },
+  { cat:"RBAC", desc:"Remove the 'Contributor' role from user 'user@company.com' scoped to resource group 'prod-rg'.", cmd:"az role assignment delete --assignee user@company.com --role Contributor --resource-group prod-rg" },
+  { cat:"RBAC", desc:"List all available built-in role definitions in Azure.", cmd:"az role definition list" },
+  { cat:"RBAC", desc:"Show details of the built-in role named 'Contributor'.", cmd:"az role definition show --name Contributor" },
+  { cat:"RBAC", desc:"Assign the 'AcrPull' role to managed identity 'prod-identity' scoped to registry 'prodregistry'.", cmd:"az role assignment create --assignee prod-identity --role AcrPull --scope /subscriptions/mysub/resourceGroups/prod-rg/providers/Microsoft.ContainerRegistry/registries/prodregistry" },
+  { cat:"RBAC", desc:"List all role assignments for user 'user@company.com' across the subscription.", cmd:"az role assignment list --assignee user@company.com" },
+  { cat:"RBAC", desc:"Create a custom role definition from a JSON file named 'custom-role.json'.", cmd:"az role definition create --role-definition custom-role.json" },
+
+  // Managed Identity
+  { cat:"Managed Identity", desc:"Create a user-assigned managed identity named 'prod-identity' in resource group 'prod-rg'.", cmd:"az identity create --name prod-identity --resource-group prod-rg" },
+  { cat:"Managed Identity", desc:"List all user-assigned managed identities in resource group 'prod-rg'.", cmd:"az identity list --resource-group prod-rg" },
+  { cat:"Managed Identity", desc:"Show the client ID and principal ID of managed identity 'prod-identity' in resource group 'prod-rg'.", cmd:"az identity show --name prod-identity --resource-group prod-rg" },
+  { cat:"Managed Identity", desc:"Assign user-assigned managed identity 'prod-identity' to VM 'web-vm' in resource group 'prod-rg'.", cmd:"az vm identity assign --name web-vm --resource-group prod-rg --identities prod-identity" },
+  { cat:"Managed Identity", desc:"Enable system-assigned managed identity on Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp identity assign --name prod-funcapp --resource-group prod-rg" },
+  { cat:"Managed Identity", desc:"Assign user-assigned managed identity 'prod-identity' to web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp identity assign --name my-web-app --resource-group prod-rg --identities prod-identity" },
+  { cat:"Managed Identity", desc:"Remove a managed identity from VM 'web-vm' in resource group 'prod-rg'.", cmd:"az vm identity remove --name web-vm --resource-group prod-rg --identities prod-identity" },
+  { cat:"Managed Identity", desc:"Delete managed identity 'prod-identity' from resource group 'prod-rg'.", cmd:"az identity delete --name prod-identity --resource-group prod-rg" },
+
+  // Monitor
+  { cat:"Monitor", desc:"Create a Log Analytics workspace named 'prod-logs' in resource group 'prod-rg'.", cmd:"az monitor log-analytics workspace create --workspace-name prod-logs --resource-group prod-rg" },
+  { cat:"Monitor", desc:"List CPU percentage metrics for VM 'web-vm' in resource group 'prod-rg'.", cmd:"az monitor metrics list --resource web-vm --resource-group prod-rg --metric Percentage CPU" },
+  { cat:"Monitor", desc:"Create an alert rule named 'high-cpu-alert' in resource group 'prod-rg'.", cmd:"az monitor alert create --name high-cpu-alert --resource-group prod-rg" },
+  { cat:"Monitor", desc:"Create a diagnostic setting named 'prod-diag' on VM 'web-vm' sending logs to workspace 'prod-logs'.", cmd:"az monitor diagnostic-settings create --name prod-diag --resource web-vm --workspace prod-logs" },
+  { cat:"Monitor", desc:"List all activity log events in resource group 'prod-rg' from the last 24 hours.", cmd:"az monitor activity-log list --resource-group prod-rg" },
+  { cat:"Monitor", desc:"Show the Log Analytics workspace named 'prod-logs' in resource group 'prod-rg'.", cmd:"az monitor log-analytics workspace show --workspace-name prod-logs --resource-group prod-rg" },
+  { cat:"Monitor", desc:"Delete Log Analytics workspace 'prod-logs' from resource group 'prod-rg'.", cmd:"az monitor log-analytics workspace delete --workspace-name prod-logs --resource-group prod-rg" },
+  { cat:"Monitor", desc:"List all alert rules in resource group 'prod-rg'.", cmd:"az monitor alert list --resource-group prod-rg" },
+
+  // App Config
+  { cat:"App Config", desc:"Create an App Configuration store named 'prod-appconfig' in resource group 'prod-rg'.", cmd:"az appconfig create --name prod-appconfig --resource-group prod-rg --location eastus" },
+  { cat:"App Config", desc:"Set key 'Settings:Theme' with value 'dark' in App Config store 'prod-appconfig'.", cmd:"az appconfig kv set --name prod-appconfig --key Settings:Theme --value dark" },
+  { cat:"App Config", desc:"Show the value of key 'Settings:Theme' in App Config store 'prod-appconfig'.", cmd:"az appconfig kv show --name prod-appconfig --key Settings:Theme" },
+  { cat:"App Config", desc:"List all key-value pairs in App Config store 'prod-appconfig'.", cmd:"az appconfig kv list --name prod-appconfig" },
+  { cat:"App Config", desc:"Delete key 'Settings:OldFlag' from App Config store 'prod-appconfig'.", cmd:"az appconfig kv delete --name prod-appconfig --key Settings:OldFlag" },
+  { cat:"App Config", desc:"Show the connection string for App Config store 'prod-appconfig'.", cmd:"az appconfig credential list --name prod-appconfig --resource-group prod-rg" },
+  { cat:"App Config", desc:"Export all key-values from App Config store 'prod-appconfig' to a JSON file named 'config.json'.", cmd:"az appconfig kv export --name prod-appconfig --destination file --path config.json --format json" },
+
+  // Redis
+  { cat:"Redis", desc:"Create a Redis Cache instance named 'prod-redis' in resource group 'prod-rg' with Basic C0 SKU.", cmd:"az redis create --name prod-redis --resource-group prod-rg --location eastus --sku Basic --vm-size C0" },
+  { cat:"Redis", desc:"Show the primary access key for Redis Cache 'prod-redis' in resource group 'prod-rg'.", cmd:"az redis list-keys --name prod-redis --resource-group prod-rg" },
+  { cat:"Redis", desc:"List all Redis Cache instances in resource group 'prod-rg'.", cmd:"az redis list --resource-group prod-rg" },
+  { cat:"Redis", desc:"Delete Redis Cache 'prod-redis' from resource group 'prod-rg'.", cmd:"az redis delete --name prod-redis --resource-group prod-rg" },
+  { cat:"Redis", desc:"Show details of Redis Cache 'prod-redis' in resource group 'prod-rg'.", cmd:"az redis show --name prod-redis --resource-group prod-rg" },
+  { cat:"Redis", desc:"Regenerate the primary key for Redis Cache 'prod-redis' in resource group 'prod-rg'.", cmd:"az redis regenerate-keys --name prod-redis --resource-group prod-rg --key-type Primary" },
+
+  // SQL
+  { cat:"SQL", desc:"Create an Azure SQL server named 'prod-sqlserver' in resource group 'prod-rg' with admin login 'sqladmin'.", cmd:"az sql server create --name prod-sqlserver --resource-group prod-rg --location eastus --admin-user sqladmin --admin-password P@ssword123" },
+  { cat:"SQL", desc:"Create a SQL database named 'prod-db' on server 'prod-sqlserver' in resource group 'prod-rg' with Standard S2 SKU.", cmd:"az sql db create --name prod-db --server prod-sqlserver --resource-group prod-rg --service-objective S2" },
+  { cat:"SQL", desc:"List all databases on SQL server 'prod-sqlserver' in resource group 'prod-rg'.", cmd:"az sql db list --server prod-sqlserver --resource-group prod-rg" },
+  { cat:"SQL", desc:"Add a firewall rule named 'allow-office' to SQL server 'prod-sqlserver' allowing IP range 203.0.113.0 to 203.0.113.255.", cmd:"az sql server firewall-rule create --name allow-office --server prod-sqlserver --resource-group prod-rg --start-ip-address 203.0.113.0 --end-ip-address 203.0.113.255" },
+  { cat:"SQL", desc:"Show the connection string for database 'prod-db' on server 'prod-sqlserver'.", cmd:"az sql db show-connection-string --name prod-db --server prod-sqlserver --client ado.net" },
+  { cat:"SQL", desc:"Delete database 'prod-db' from SQL server 'prod-sqlserver' in resource group 'prod-rg'.", cmd:"az sql db delete --name prod-db --server prod-sqlserver --resource-group prod-rg" },
+  { cat:"SQL", desc:"List all SQL servers in resource group 'prod-rg'.", cmd:"az sql server list --resource-group prod-rg" },
+  { cat:"SQL", desc:"Show details of SQL server 'prod-sqlserver' in resource group 'prod-rg'.", cmd:"az sql server show --name prod-sqlserver --resource-group prod-rg" },
+
+  // IaC
+  { cat:"IaC", desc:"Compile a Bicep file named 'main.bicep' into an ARM JSON template.", cmd:"az bicep build --file main.bicep" },
+  { cat:"IaC", desc:"Validate Bicep file 'main.bicep' against resource group 'prod-rg' without deploying.", cmd:"az deployment group validate --resource-group prod-rg --template-file main.bicep" },
+  { cat:"IaC", desc:"Deploy Bicep file 'main.bicep' to resource group 'prod-rg'.", cmd:"az deployment group create --resource-group prod-rg --template-file main.bicep" },
+  { cat:"IaC", desc:"Deploy Bicep file 'main.bicep' to resource group 'prod-rg' passing parameter 'environment' as 'prod'.", cmd:"az deployment group create --resource-group prod-rg --template-file main.bicep --parameters environment=prod" },
+  { cat:"IaC", desc:"List all deployments in resource group 'prod-rg'.", cmd:"az deployment group list --resource-group prod-rg" },
+  { cat:"IaC", desc:"Show the outputs of a deployment named 'main' in resource group 'prod-rg'.", cmd:"az deployment group show --name main --resource-group prod-rg" },
+  { cat:"IaC", desc:"Decompile an ARM JSON file named 'main.json' into a Bicep file.", cmd:"az bicep decompile --file main.json" },
+  { cat:"IaC", desc:"Install or upgrade the Bicep CLI to the latest version.", cmd:"az bicep install" },
+  { cat:"IaC", desc:"Preview what changes a deployment of 'main.bicep' would make to resource group 'prod-rg' using what-if.", cmd:"az deployment group what-if --resource-group prod-rg --template-file main.bicep" },
+  { cat:"IaC", desc:"Cancel an in-progress deployment named 'main' in resource group 'prod-rg'.", cmd:"az deployment group cancel --name main --resource-group prod-rg" },
+
+  // Misc
+  { cat:"Misc", desc:"List all resources in resource group 'prod-rg'.", cmd:"az resource list --resource-group prod-rg" },
+  { cat:"Misc", desc:"Show help for the 'az vm' command group.", cmd:"az vm --help" },
+  { cat:"Misc", desc:"Show the currently installed version of the AZ CLI.", cmd:"az version" },
+  { cat:"Misc", desc:"Upgrade the AZ CLI to the latest version.", cmd:"az upgrade" },
+  { cat:"Misc", desc:"Install the Azure DevOps AZ CLI extension.", cmd:"az extension add --name azure-devops" },
+  { cat:"Misc", desc:"List all installed AZ CLI extensions.", cmd:"az extension list" },
+  { cat:"Misc", desc:"Remove the Azure DevOps extension from the AZ CLI.", cmd:"az extension remove --name azure-devops" },
+  { cat:"Misc", desc:"Search for a resource named 'prod-keyvault' across the entire subscription.", cmd:"az resource show --name prod-keyvault --resource-type Microsoft.KeyVault/vaults --resource-group prod-rg" },
+  { cat:"Misc", desc:"Tag resource group 'prod-rg' with the tags 'team=backend' and 'env=prod'.", cmd:"az tag create --resource-id /subscriptions/mysub/resourceGroups/prod-rg --tags team=backend env=prod" },
+  { cat:"Misc", desc:"List all locations available for your Azure subscription.", cmd:"az account list-locations" },
+  { cat:"Misc", desc:"Show the current AZ CLI configuration including defaults.", cmd:"az configure --list-defaults" },
+  { cat:"Misc", desc:"Move resource 'prod-keyvault' from resource group 'old-rg' to resource group 'prod-rg'.", cmd:"az resource move --destination-group prod-rg --ids /subscriptions/mysub/resourceGroups/old-rg/providers/Microsoft.KeyVault/vaults/prod-keyvault" },
+];
+
+const cats = ['All', ...new Set(allCards.map(c => c.cat))];
+let activeFilter = 'All';
+let deck = [];
+let idx = 0;
+let completed = 0;
+let cardComplete = false;
+let answerHidden = false;
+
+function toggleHide() {
+  answerHidden = !answerHidden;
+  document.getElementById('target').classList.toggle('hidden', answerHidden);
+  document.getElementById('hide-btn').textContent = answerHidden ? 'Show answer' : 'Hide answer';
+}
+
+function getFiltered() {
+  return activeFilter === 'All' ? [...allCards] : allCards.filter(c => c.cat === activeFilter);
+}
+
+function buildFilters() {
+  const bar = document.getElementById('filter-bar');
+  bar.innerHTML = '';
+  cats.forEach(cat => {
+    const b = document.createElement('button');
+    b.className = 'filter-btn' + (cat === activeFilter ? ' active' : '');
+    b.textContent = cat;
+    b.onclick = () => { activeFilter = cat; resetDeck(); buildFilters(); };
+    bar.appendChild(b);
+  });
+}
+
+function renderCard() {
+  if (idx >= deck.length) { showDone(); return; }
+  const card = deck[idx];
+  cardComplete = false;
+  document.getElementById('card-tag').textContent = card.cat;
+  document.getElementById('card-num').textContent = `${idx + 1} / ${deck.length}`;
+  document.getElementById('card-desc').textContent = card.desc;
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('input-hint').textContent = '';
+  document.getElementById('input-hint').className = 'input-hint';
+  document.getElementById('target').classList.toggle('hidden', answerHidden);
+  const input = document.getElementById('typing-input');
+  input.value = '';
+  input.className = 'typing-input';
+  input.disabled = false;
+  input.focus();
+  renderTarget('');
+  updateStats();
+}
+
+function renderTarget(typed) {
+  const target = deck[idx].cmd;
+  const container = document.getElementById('target');
+  container.innerHTML = '';
+  for (let i = 0; i < target.length; i++) {
+    const span = document.createElement('span');
+    span.textContent = target[i];
+    if (i < typed.length) {
+      span.className = typed[i] === target[i] ? 'correct' : 'incorrect';
+    } else if (i === typed.length) {
+      span.className = 'cursor';
+    }
+    container.appendChild(span);
+  }
+}
+
+function showRankUp(title) {
+  const el = document.getElementById('rank-up');
+  el.textContent = `🎖 Rank up: ${title}`;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+document.getElementById('typing-input').addEventListener('input', function() {
+  if (cardComplete) return;
+  const target = deck[idx].cmd;
+  const typed = this.value;
+  renderTarget(typed);
+  const hasError = [...typed].some((ch, i) => ch !== target[i]);
+  if (typed === target) {
+    cardComplete = true;
+    completed++;
+    this.className = 'typing-input complete';
+    document.getElementById('input-hint').textContent = '✓ Correct! Press Enter or click Next.';
+    document.getElementById('input-hint').className = 'input-hint success';
+    document.getElementById('next-btn').style.display = 'inline-block';
+    const newRank = getRank(completed);
+    if (newRank !== prevRank) { showRankUp(newRank); prevRank = newRank; }
+    updateStats();
+    saveProgress();
+  } else if (hasError) {
+    this.className = 'typing-input error';
+    document.getElementById('input-hint').textContent = 'Fix the red characters to continue';
+    document.getElementById('input-hint').className = 'input-hint error';
+  } else {
+    this.className = 'typing-input';
+    document.getElementById('input-hint').textContent = '';
+  }
+});
+
+document.getElementById('typing-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && cardComplete) nextCard();
+});
+
+function nextCard() { idx++; saveProgress(); renderCard(); }
+
+function skipCard() {
+  const card = deck.splice(idx, 1)[0];
+  deck.push(card);
+  if (idx >= deck.length) idx = 0;
+  saveProgress();
+  renderCard();
+}
+
+function updateStats() {
+  document.getElementById('s-done').textContent = completed;
+  document.getElementById('s-rem').textContent = Math.max(0, deck.length - idx);
+  document.getElementById('s-rank').textContent = getRank(completed);
+  document.getElementById('prog').style.width = (completed / deck.length * 100) + '%';
+}
+
+function showDone() {
+  document.getElementById('quiz-area').style.display = 'none';
+  document.getElementById('done-screen').style.display = 'block';
+  document.getElementById('done-msg').textContent = `You completed all ${deck.length} commands. Rank: ${getRank(completed)}`;
+}
+
+function saveProgress() {
+  try {
+    localStorage.setItem('azcli_completed', completed);
+    localStorage.setItem('azcli_idx', idx);
+    localStorage.setItem('azcli_filter', activeFilter);
+    localStorage.setItem('azcli_deck', JSON.stringify(deck.map(c => c.cmd)));
+  } catch(e) {}
+}
+
+function loadProgress() {
+  try {
+    const savedFilter = localStorage.getItem('azcli_filter');
+    const savedCompleted = localStorage.getItem('azcli_completed');
+    const savedIdx = localStorage.getItem('azcli_idx');
+    const savedDeckCmds = localStorage.getItem('azcli_deck');
+    if (!savedDeckCmds) return false;
+
+    activeFilter = savedFilter || 'All';
+    const cmdOrder = JSON.parse(savedDeckCmds);
+    deck = cmdOrder.map(cmd => allCards.find(c => c.cmd === cmd)).filter(Boolean);
+    if (deck.length === 0) return false;
+
+    completed = parseInt(savedCompleted) || 0;
+    idx = parseInt(savedIdx) || 0;
+    if (idx >= deck.length) idx = 0;
+    prevRank = getRank(completed);
+    return true;
+  } catch(e) { return false; }
+}
+
+function resetDeck() {
+  deck = getFiltered();
+  idx = 0; completed = 0; prevRank = getRank(0);
+  document.getElementById('quiz-area').style.display = 'block';
+  document.getElementById('done-screen').style.display = 'none';
+  saveProgress();
+  renderCard();
+  updateStats();
+}
+
+buildFilters();
+const restored = loadProgress();
+if (restored) {
+  buildFilters();
+  document.getElementById('quiz-area').style.display = 'block';
+  document.getElementById('done-screen').style.display = 'none';
+  renderCard();
+  updateStats();
+} else {
+  resetDeck();
+}
+</script>
+</body>
+</html>
