@@ -25,7 +25,7 @@
   .stat { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
   .stat-num { font-size: 22px; font-weight: 500; color: var(--text); }
   .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .rank-val { font-size: 22px; font-weight: 500; color: var(--accent); line-height: 1.3; display: flex; align-items: center; justify-content: center; min-height: 33px; }
+  .rank-val { font-size: 22px; font-weight: 500; color: var(--accent); }
   .progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-bottom: 24px; overflow: hidden; }
   .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .4s ease; }
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px; margin-bottom: 20px; }
@@ -51,8 +51,8 @@
   .btn:hover { border-color: #555; background: #222; }
   .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   .btn-primary:hover { background: #3a8eef; border-color: #3a8eef; }
-  .btn-skip { margin-left: auto; color: var(--muted); font-size: 12px; }
   .btn-hide { font-size: 12px; color: var(--muted); }
+  .btn-skip { margin-left: auto; color: var(--muted); font-size: 12px; }
   .target.hidden span { color: transparent; background: var(--pending); border-radius: 2px; user-select: none; }
   .target.hidden span.correct { background: var(--correct); color: transparent; }
   .target.hidden span.incorrect { background: var(--incorrect); color: transparent; text-decoration: none; }
@@ -95,12 +95,13 @@
     </div>
   </div>
   <div class="done" id="done-screen" style="display:none">
-    <h2>✓ Deck complete</h2>
+    <h2>✓ Done!</h2>
     <p id="done-msg"></p>
     <button class="btn btn-primary" onclick="resetDeck()">Restart</button>
   </div>
 </div>
 <script>
+// ── Ranks ─────────────────────────────────────────────────────────────────
 const ranks = [
   { min:0,   title:"Intern" },
   { min:25,  title:"Junior Dev" },
@@ -112,9 +113,9 @@ const ranks = [
   { min:175, title:"Tech Lead" },
   { min:200, title:"10x Developer 🚀" },
 ];
-
 function getRank(n) { return [...ranks].reverse().find(r => n >= r.min).title; }
 
+// ── Cards ─────────────────────────────────────────────────────────────────
 const allCards = [
   // Auth
   { cat:"Auth", desc:"Log in to Azure — opens a browser window to authenticate your account.", cmd:"az login" },
@@ -158,7 +159,7 @@ const allCards = [
   { cat:"Networking", desc:"List all subnets inside virtual network 'prod-vnet' in resource group 'prod-rg'.", cmd:"az network vnet subnet list --vnet-name prod-vnet --resource-group prod-rg" },
   { cat:"Networking", desc:"Show details of public IP 'prod-pip' in resource group 'prod-rg'.", cmd:"az network public-ip show --name prod-pip --resource-group prod-rg" },
   { cat:"Networking", desc:"Create a load balancer named 'prod-lb' in resource group 'prod-rg' with a public IP named 'prod-pip'.", cmd:"az network lb create --name prod-lb --resource-group prod-rg --public-ip-address prod-pip" },
-  { cat:"Networking", desc:"Create a private endpoint named 'prod-pe' in resource group 'prod-rg' inside subnet 'app-subnet' connected to a resource.", cmd:"az network private-endpoint create --name prod-pe --resource-group prod-rg --vnet-name prod-vnet --subnet app-subnet --private-connection-resource-id myresourceid --connection-name myconn --group-id sites" },
+  { cat:"Networking", desc:"Create a private endpoint named 'prod-pe' connected to a resource, inside subnet 'app-subnet'.", cmd:"az network private-endpoint create --name prod-pe --resource-group prod-rg --vnet-name prod-vnet --subnet app-subnet --private-connection-resource-id myresourceid --connection-name myconn --group-id sites" },
   { cat:"Networking", desc:"List all NSG rules for security group 'web-nsg' in resource group 'prod-rg'.", cmd:"az network nsg rule list --nsg-name web-nsg --resource-group prod-rg" },
 
   // Storage
@@ -219,9 +220,9 @@ const allCards = [
   { cat:"ACR", desc:"Delete image tag 'myapp:v0.9' from registry 'prodregistry'.", cmd:"az acr repository delete --name prodregistry --image myapp:v0.9" },
   { cat:"ACR", desc:"Enable the admin user on registry 'prodregistry' to allow password-based login.", cmd:"az acr update --name prodregistry --admin-enabled true" },
   { cat:"ACR", desc:"Show the login server URL and SKU for registry 'prodregistry'.", cmd:"az acr show --name prodregistry --resource-group prod-rg" },
-  { cat:"ACR", desc:"Run a quick task to build and test an image in registry 'prodregistry' without a Dockerfile.", cmd:"az acr run --registry prodregistry --cmd myapp:v1.0 /dev/null" },
   { cat:"ACR", desc:"List all registries in resource group 'prod-rg'.", cmd:"az acr list --resource-group prod-rg" },
   { cat:"ACR", desc:"Show the admin credentials for registry 'prodregistry'.", cmd:"az acr credential show --name prodregistry" },
+  { cat:"ACR", desc:"Run a quick task to test an image in registry 'prodregistry' without a Dockerfile.", cmd:"az acr run --registry prodregistry --cmd myapp:v1.0 /dev/null" },
 
   // AKS
   { cat:"AKS", desc:"Create an AKS cluster named 'prod-cluster' in resource group 'prod-rg' with 3 nodes.", cmd:"az aks create --name prod-cluster --resource-group prod-rg --node-count 3" },
@@ -249,7 +250,7 @@ const allCards = [
   { cat:"Key Vault", desc:"Show details and access policies for Key Vault 'prod-keyvault'.", cmd:"az keyvault show --name prod-keyvault --resource-group prod-rg" },
   { cat:"Key Vault", desc:"List all Key Vaults in resource group 'prod-rg'.", cmd:"az keyvault list --resource-group prod-rg" },
   { cat:"Key Vault", desc:"Recover a soft-deleted Key Vault named 'prod-keyvault' in East US.", cmd:"az keyvault recover --name prod-keyvault --location eastus" },
-  { cat:"Key Vault", desc:"Create a certificate named 'prod-cert' in Key Vault 'prod-keyvault' using the default policy.", cmd:"az keyvault certificate create --vault-name prod-keyvault --name prod-cert --policy @policy.json" },
+  { cat:"Key Vault", desc:"Create a certificate named 'prod-cert' in Key Vault 'prod-keyvault' using a policy file.", cmd:"az keyvault certificate create --vault-name prod-keyvault --name prod-cert --policy @policy.json" },
 
   // Service Bus
   { cat:"Service Bus", desc:"Create a Service Bus namespace named 'prod-servicebus' in resource group 'prod-rg' with Standard SKU.", cmd:"az servicebus namespace create --name prod-servicebus --resource-group prod-rg --sku Standard" },
@@ -303,7 +304,7 @@ const allCards = [
   { cat:"Monitor", desc:"List all activity log events in resource group 'prod-rg' from the last 24 hours.", cmd:"az monitor activity-log list --resource-group prod-rg" },
   { cat:"Monitor", desc:"Show the Log Analytics workspace named 'prod-logs' in resource group 'prod-rg'.", cmd:"az monitor log-analytics workspace show --workspace-name prod-logs --resource-group prod-rg" },
   { cat:"Monitor", desc:"Delete Log Analytics workspace 'prod-logs' from resource group 'prod-rg'.", cmd:"az monitor log-analytics workspace delete --workspace-name prod-logs --resource-group prod-rg" },
-  { cat:"Monitor", desc:"List all alert rules in resource group 'prod-rg'.", cmd:"az monitor alert list --resource-group prod-rg" },
+  { cat:"Monitor", desc:"List all metric alert rules in resource group 'prod-rg'.", cmd:"az monitor metrics alert list --resource-group prod-rg" },
 
   // App Config
   { cat:"App Config", desc:"Create an App Configuration store named 'prod-appconfig' in resource group 'prod-rg'.", cmd:"az appconfig create --name prod-appconfig --resource-group prod-rg --location eastus" },
@@ -352,31 +353,68 @@ const allCards = [
   { cat:"Misc", desc:"Install the Azure DevOps AZ CLI extension.", cmd:"az extension add --name azure-devops" },
   { cat:"Misc", desc:"List all installed AZ CLI extensions.", cmd:"az extension list" },
   { cat:"Misc", desc:"Remove the Azure DevOps extension from the AZ CLI.", cmd:"az extension remove --name azure-devops" },
-  { cat:"Misc", desc:"Search for a resource named 'prod-keyvault' across the entire subscription.", cmd:"az resource show --name prod-keyvault --resource-type Microsoft.KeyVault/vaults --resource-group prod-rg" },
+  { cat:"Misc", desc:"Show details of a resource named 'prod-keyvault' in resource group 'prod-rg'.", cmd:"az resource show --name prod-keyvault --resource-type Microsoft.KeyVault/vaults --resource-group prod-rg" },
   { cat:"Misc", desc:"Tag resource group 'prod-rg' with the tags 'team=backend' and 'env=prod'.", cmd:"az tag create --resource-id /subscriptions/mysub/resourceGroups/prod-rg --tags team=backend env=prod" },
   { cat:"Misc", desc:"List all locations available for your Azure subscription.", cmd:"az account list-locations" },
   { cat:"Misc", desc:"Show the current AZ CLI configuration including defaults.", cmd:"az configure --list-defaults" },
   { cat:"Misc", desc:"Move resource 'prod-keyvault' from resource group 'old-rg' to resource group 'prod-rg'.", cmd:"az resource move --destination-group prod-rg --ids /subscriptions/mysub/resourceGroups/old-rg/providers/Microsoft.KeyVault/vaults/prod-keyvault" },
+  { cat:"Misc", desc:"Search for AZ CLI extensions related to 'devops'.", cmd:"az extension list-available --query \"[?contains(name,'devops')]\"" },
 ];
 
+// ── State ─────────────────────────────────────────────────────────────────
 const cats = ['All', ...new Set(allCards.map(c => c.cat))];
 let activeFilter = 'All';
 let deck = [];
 let idx = 0;
-let completed = 0;
+let completedCmds = new Set();
 let cardComplete = false;
 let answerHidden = false;
+let prevRank = getRank(0);
 
-function toggleHide() {
-  answerHidden = !answerHidden;
-  document.getElementById('target').classList.toggle('hidden', answerHidden);
-  document.getElementById('hide-btn').textContent = answerHidden ? 'Show answer' : 'Hide answer';
-}
+// ── Helpers ───────────────────────────────────────────────────────────────
+function numCompleted() { return completedCmds.size; }
 
 function getFiltered() {
   return activeFilter === 'All' ? [...allCards] : allCards.filter(c => c.cat === activeFilter);
 }
 
+function showRankUp(title) {
+  const el = document.getElementById('rank-up');
+  el.textContent = `🎖 Rank up: ${title}`;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── Storage ───────────────────────────────────────────────────────────────
+function saveProgress() {
+  try {
+    localStorage.setItem('azcli_completedCmds', JSON.stringify([...completedCmds]));
+    localStorage.setItem('azcli_idx', idx);
+    localStorage.setItem('azcli_filter', activeFilter);
+    localStorage.setItem('azcli_deck', JSON.stringify(deck.map(c => c.cmd)));
+  } catch(e) {}
+}
+
+function loadProgress() {
+  try {
+    const savedFilter = localStorage.getItem('azcli_filter');
+    const savedIdx = localStorage.getItem('azcli_idx');
+    const savedDeckCmds = localStorage.getItem('azcli_deck');
+    const savedCompleted = localStorage.getItem('azcli_completedCmds');
+    if (!savedDeckCmds) return false;
+    activeFilter = savedFilter || 'All';
+    const cmdOrder = JSON.parse(savedDeckCmds);
+    deck = cmdOrder.map(cmd => allCards.find(c => c.cmd === cmd)).filter(Boolean);
+    if (deck.length === 0) return false;
+    completedCmds = new Set(savedCompleted ? JSON.parse(savedCompleted) : []);
+    idx = parseInt(savedIdx) || 0;
+    if (idx >= deck.length) idx = 0;
+    prevRank = getRank(numCompleted());
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────
 function buildFilters() {
   const bar = document.getElementById('filter-bar');
   bar.innerHTML = '';
@@ -384,29 +422,26 @@ function buildFilters() {
     const b = document.createElement('button');
     b.className = 'filter-btn' + (cat === activeFilter ? ' active' : '');
     b.textContent = cat;
-    b.onclick = () => { activeFilter = cat; resetDeck(); buildFilters(); };
+    b.onclick = () => {
+      activeFilter = cat;
+      deck = getFiltered();
+      idx = deck.findIndex(c => !completedCmds.has(c.cmd));
+      if (idx === -1) idx = 0;
+      buildFilters();
+      renderCard();
+      updateStats();
+    };
     bar.appendChild(b);
   });
 }
 
-function renderCard() {
-  if (idx >= deck.length) { showDone(); return; }
-  const card = deck[idx];
-  cardComplete = false;
-  document.getElementById('card-tag').textContent = card.cat;
-  document.getElementById('card-num').textContent = `${idx + 1} / ${deck.length}`;
-  document.getElementById('card-desc').textContent = card.desc;
-  document.getElementById('next-btn').style.display = 'none';
-  document.getElementById('input-hint').textContent = '';
-  document.getElementById('input-hint').className = 'input-hint';
-  document.getElementById('target').classList.toggle('hidden', answerHidden);
-  const input = document.getElementById('typing-input');
-  input.value = '';
-  input.className = 'typing-input';
-  input.disabled = false;
-  input.focus();
-  renderTarget('');
-  updateStats();
+function updateStats() {
+  const doneInFilter = deck.filter(c => completedCmds.has(c.cmd)).length;
+  const remInFilter = deck.length - doneInFilter;
+  document.getElementById('s-done').textContent = doneInFilter;
+  document.getElementById('s-rem').textContent = remInFilter;
+  document.getElementById('s-rank').textContent = getRank(numCompleted());
+  document.getElementById('prog').style.width = (numCompleted() / allCards.length * 100) + '%';
 }
 
 function renderTarget(typed) {
@@ -423,15 +458,70 @@ function renderTarget(typed) {
     }
     container.appendChild(span);
   }
+  container.classList.toggle('hidden', answerHidden);
 }
 
-function showRankUp(title) {
-  const el = document.getElementById('rank-up');
-  el.textContent = `🎖 Rank up: ${title}`;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2500);
+function renderCard() {
+  while (idx < deck.length && completedCmds.has(deck[idx].cmd)) idx++;
+  if (idx >= deck.length) { showDone(); return; }
+  const card = deck[idx];
+  cardComplete = false;
+  document.getElementById('card-tag').textContent = card.cat;
+  document.getElementById('card-num').textContent = `${idx + 1} / ${deck.length}`;
+  document.getElementById('card-desc').textContent = card.desc;
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('input-hint').textContent = '';
+  document.getElementById('input-hint').className = 'input-hint';
+  const input = document.getElementById('typing-input');
+  input.value = '';
+  input.className = 'typing-input';
+  input.disabled = false;
+  input.focus();
+  renderTarget('');
+  updateStats();
 }
 
+function toggleHide() {
+  answerHidden = !answerHidden;
+  document.getElementById('target').classList.toggle('hidden', answerHidden);
+  document.getElementById('hide-btn').textContent = answerHidden ? 'Show answer' : 'Hide answer';
+}
+
+function nextCard() {
+  idx++;
+  while (idx < deck.length && completedCmds.has(deck[idx].cmd)) idx++;
+  saveProgress();
+  renderCard();
+}
+
+function skipCard() {
+  const card = deck.splice(idx, 1)[0];
+  deck.push(card);
+  if (idx >= deck.length) idx = 0;
+  saveProgress();
+  renderCard();
+}
+
+function showDone() {
+  document.getElementById('quiz-area').style.display = 'none';
+  document.getElementById('done-screen').style.display = 'block';
+  const doneInFilter = deck.filter(c => completedCmds.has(c.cmd)).length;
+  document.getElementById('done-msg').textContent = `You completed all ${doneInFilter} commands in this category. Rank: ${getRank(numCompleted())}`;
+}
+
+function resetDeck() {
+  deck = getFiltered();
+  idx = 0;
+  completedCmds = new Set();
+  prevRank = getRank(0);
+  document.getElementById('quiz-area').style.display = 'block';
+  document.getElementById('done-screen').style.display = 'none';
+  saveProgress();
+  renderCard();
+  updateStats();
+}
+
+// ── Input handler ─────────────────────────────────────────────────────────
 document.getElementById('typing-input').addEventListener('input', function() {
   if (cardComplete) return;
   const target = deck[idx].cmd;
@@ -440,12 +530,12 @@ document.getElementById('typing-input').addEventListener('input', function() {
   const hasError = [...typed].some((ch, i) => ch !== target[i]);
   if (typed === target) {
     cardComplete = true;
-    completed++;
+    completedCmds.add(target);
     this.className = 'typing-input complete';
     document.getElementById('input-hint').textContent = '✓ Correct! Press Enter or click Next.';
     document.getElementById('input-hint').className = 'input-hint success';
     document.getElementById('next-btn').style.display = 'inline-block';
-    const newRank = getRank(completed);
+    const newRank = getRank(numCompleted());
     if (newRank !== prevRank) { showRankUp(newRank); prevRank = newRank; }
     updateStats();
     saveProgress();
@@ -463,69 +553,7 @@ document.getElementById('typing-input').addEventListener('keydown', function(e) 
   if (e.key === 'Enter' && cardComplete) nextCard();
 });
 
-function nextCard() { idx++; saveProgress(); renderCard(); }
-
-function skipCard() {
-  const card = deck.splice(idx, 1)[0];
-  deck.push(card);
-  if (idx >= deck.length) idx = 0;
-  saveProgress();
-  renderCard();
-}
-
-function updateStats() {
-  document.getElementById('s-done').textContent = completed;
-  document.getElementById('s-rem').textContent = Math.max(0, deck.length - idx);
-  document.getElementById('s-rank').textContent = getRank(completed);
-  document.getElementById('prog').style.width = (completed / deck.length * 100) + '%';
-}
-
-function showDone() {
-  document.getElementById('quiz-area').style.display = 'none';
-  document.getElementById('done-screen').style.display = 'block';
-  document.getElementById('done-msg').textContent = `You completed all ${deck.length} commands. Rank: ${getRank(completed)}`;
-}
-
-function saveProgress() {
-  try {
-    localStorage.setItem('azcli_completed', completed);
-    localStorage.setItem('azcli_idx', idx);
-    localStorage.setItem('azcli_filter', activeFilter);
-    localStorage.setItem('azcli_deck', JSON.stringify(deck.map(c => c.cmd)));
-  } catch(e) {}
-}
-
-function loadProgress() {
-  try {
-    const savedFilter = localStorage.getItem('azcli_filter');
-    const savedCompleted = localStorage.getItem('azcli_completed');
-    const savedIdx = localStorage.getItem('azcli_idx');
-    const savedDeckCmds = localStorage.getItem('azcli_deck');
-    if (!savedDeckCmds) return false;
-
-    activeFilter = savedFilter || 'All';
-    const cmdOrder = JSON.parse(savedDeckCmds);
-    deck = cmdOrder.map(cmd => allCards.find(c => c.cmd === cmd)).filter(Boolean);
-    if (deck.length === 0) return false;
-
-    completed = parseInt(savedCompleted) || 0;
-    idx = parseInt(savedIdx) || 0;
-    if (idx >= deck.length) idx = 0;
-    prevRank = getRank(completed);
-    return true;
-  } catch(e) { return false; }
-}
-
-function resetDeck() {
-  deck = getFiltered();
-  idx = 0; completed = 0; prevRank = getRank(0);
-  document.getElementById('quiz-area').style.display = 'block';
-  document.getElementById('done-screen').style.display = 'none';
-  saveProgress();
-  renderCard();
-  updateStats();
-}
-
+// ── Init ──────────────────────────────────────────────────────────────────
 buildFilters();
 const restored = loadProgress();
 if (restored) {
