@@ -61,6 +61,8 @@
   .done p { color: var(--muted); font-size: 15px; margin-bottom: 28px; }
   .rank-up { position: fixed; top: 32px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #fff; font-size: 14px; font-weight: 500; padding: 10px 24px; border-radius: 24px; opacity: 0; pointer-events: none; transition: opacity .3s; z-index: 999; }
   .rank-up.show { opacity: 1; }
+  .restart-bar { text-align: center; margin-top: 12px; }
+  .restart-bar .btn { font-size: 12px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -94,14 +96,16 @@
       </div>
     </div>
   </div>
+  <div class="restart-bar">
+    <button class="btn" onclick="restartCategory()">↺ Restart this category</button>
+  </div>
   <div class="done" id="done-screen" style="display:none">
     <h2>✓ Done!</h2>
     <p id="done-msg"></p>
-    <button class="btn btn-primary" onclick="resetDeck()">Restart</button>
+    <button class="btn btn-primary" onclick="resetDeck()">Restart all</button>
   </div>
 </div>
 <script>
-// ── Ranks ─────────────────────────────────────────────────────────────────
 const ranks = [
   { min:0,   title:"Intern" },
   { min:25,  title:"Junior Dev" },
@@ -115,25 +119,19 @@ const ranks = [
 ];
 function getRank(n) { return [...ranks].reverse().find(r => n >= r.min).title; }
 
-// ── Cards ─────────────────────────────────────────────────────────────────
 const allCards = [
-  // Auth
   { cat:"Auth", desc:"Log in to Azure — opens a browser window to authenticate your account.", cmd:"az login" },
   { cat:"Auth", desc:"List all subscriptions available to your logged-in account.", cmd:"az account list" },
   { cat:"Auth", desc:"Set your active subscription to one named 'DevSubscription'.", cmd:"az account set --subscription DevSubscription" },
   { cat:"Auth", desc:"Show details of the currently active subscription.", cmd:"az account show" },
   { cat:"Auth", desc:"Log out of Azure and clear cached credentials.", cmd:"az logout" },
   { cat:"Auth", desc:"Set default location to eastus and default resource group to prod-rg.", cmd:"az configure --defaults location=eastus group=prod-rg" },
-
-  // Resource Groups
   { cat:"Resource Groups", desc:"Create a resource group named 'prod-rg' in East US.", cmd:"az group create --name prod-rg --location eastus" },
   { cat:"Resource Groups", desc:"List all resource groups in your active subscription.", cmd:"az group list" },
   { cat:"Resource Groups", desc:"Delete a resource group named 'old-rg' and everything inside it.", cmd:"az group delete --name old-rg" },
   { cat:"Resource Groups", desc:"Show details for a specific resource group named 'prod-rg'.", cmd:"az group show --name prod-rg" },
   { cat:"Resource Groups", desc:"Check whether a resource group named 'prod-rg' exists.", cmd:"az group exists --name prod-rg" },
   { cat:"Resource Groups", desc:"Update the tags on resource group 'prod-rg' with env=production.", cmd:"az group update --name prod-rg --tags env=production" },
-
-  // VMs
   { cat:"VMs", desc:"Create a VM named 'web-vm' in resource group 'prod-rg', using Ubuntu, size Standard_B2s, with admin user 'azureuser'.", cmd:"az vm create --name web-vm --resource-group prod-rg --image Ubuntu2204 --size Standard_B2s --admin-username azureuser" },
   { cat:"VMs", desc:"List all virtual machines in resource group 'prod-rg'.", cmd:"az vm list --resource-group prod-rg" },
   { cat:"VMs", desc:"Start a VM named 'web-vm' in resource group 'prod-rg'.", cmd:"az vm start --name web-vm --resource-group prod-rg" },
@@ -147,8 +145,6 @@ const allCards = [
   { cat:"VMs", desc:"List available VM sizes in the East US region.", cmd:"az vm list-sizes --location eastus" },
   { cat:"VMs", desc:"Capture a generalized image of VM 'web-vm' in resource group 'prod-rg'.", cmd:"az vm capture --name web-vm --resource-group prod-rg --vhd-name-prefix myimage" },
   { cat:"VMs", desc:"List all IP addresses associated with VM 'web-vm' in resource group 'prod-rg'.", cmd:"az vm list-ip-addresses --name web-vm --resource-group prod-rg" },
-
-  // Networking
   { cat:"Networking", desc:"Create a virtual network named 'prod-vnet' in resource group 'prod-rg' with address prefix 10.0.0.0/16.", cmd:"az network vnet create --name prod-vnet --resource-group prod-rg --address-prefix 10.0.0.0/16" },
   { cat:"Networking", desc:"Create a subnet named 'app-subnet' inside 'prod-vnet' in resource group 'prod-rg' with prefix 10.0.1.0/24.", cmd:"az network vnet subnet create --name app-subnet --vnet-name prod-vnet --resource-group prod-rg --address-prefix 10.0.1.0/24" },
   { cat:"Networking", desc:"Create a network security group named 'web-nsg' in resource group 'prod-rg'.", cmd:"az network nsg create --name web-nsg --resource-group prod-rg" },
@@ -159,10 +155,8 @@ const allCards = [
   { cat:"Networking", desc:"List all subnets inside virtual network 'prod-vnet' in resource group 'prod-rg'.", cmd:"az network vnet subnet list --vnet-name prod-vnet --resource-group prod-rg" },
   { cat:"Networking", desc:"Show details of public IP 'prod-pip' in resource group 'prod-rg'.", cmd:"az network public-ip show --name prod-pip --resource-group prod-rg" },
   { cat:"Networking", desc:"Create a load balancer named 'prod-lb' in resource group 'prod-rg' with a public IP named 'prod-pip'.", cmd:"az network lb create --name prod-lb --resource-group prod-rg --public-ip-address prod-pip" },
-  { cat:"Networking", desc:"Create a private endpoint named 'prod-pe' connected to a resource, inside subnet 'app-subnet'.", cmd:"az network private-endpoint create --name prod-pe --resource-group prod-rg --vnet-name prod-vnet --subnet app-subnet --private-connection-resource-id myresourceid --connection-name myconn --group-id sites" },
+  { cat:"Networking", desc:"Create a private endpoint named 'prod-pe' connected to a resource inside subnet 'app-subnet'.", cmd:"az network private-endpoint create --name prod-pe --resource-group prod-rg --vnet-name prod-vnet --subnet app-subnet --private-connection-resource-id myresourceid --connection-name myconn --group-id sites" },
   { cat:"Networking", desc:"List all NSG rules for security group 'web-nsg' in resource group 'prod-rg'.", cmd:"az network nsg rule list --nsg-name web-nsg --resource-group prod-rg" },
-
-  // Storage
   { cat:"Storage", desc:"Create a storage account named 'prodstorageacct' in resource group 'prod-rg', located in East US, with Standard LRS SKU.", cmd:"az storage account create --name prodstorageacct --resource-group prod-rg --location eastus --sku Standard_LRS" },
   { cat:"Storage", desc:"Create a blob container named 'uploads' inside storage account 'prodstorageacct'.", cmd:"az storage container create --name uploads --account-name prodstorageacct" },
   { cat:"Storage", desc:"List all containers in storage account 'prodstorageacct'.", cmd:"az storage container list --account-name prodstorageacct" },
@@ -174,8 +168,6 @@ const allCards = [
   { cat:"Storage", desc:"Show details of storage account 'prodstorageacct' in resource group 'prod-rg'.", cmd:"az storage account show --name prodstorageacct --resource-group prod-rg" },
   { cat:"Storage", desc:"Delete storage account 'prodstorageacct' from resource group 'prod-rg'.", cmd:"az storage account delete --name prodstorageacct --resource-group prod-rg" },
   { cat:"Storage", desc:"Enable static website hosting on storage account 'prodstorageacct'.", cmd:"az storage blob service-properties update --account-name prodstorageacct --static-website --index-document index.html" },
-
-  // App Services
   { cat:"App Services", desc:"Create a web app named 'my-web-app' in resource group 'prod-rg' using plan 'my-plan' with Node.js 18 runtime.", cmd:"az webapp create --name my-web-app --resource-group prod-rg --plan my-plan --runtime NODE:18" },
   { cat:"App Services", desc:"List all web apps in resource group 'prod-rg'.", cmd:"az webapp list --resource-group prod-rg" },
   { cat:"App Services", desc:"Stream live logs from web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp log tail --name my-web-app --resource-group prod-rg" },
@@ -189,8 +181,6 @@ const allCards = [
   { cat:"App Services", desc:"Show the default hostname and state of web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp show --name my-web-app --resource-group prod-rg" },
   { cat:"App Services", desc:"Delete web app 'my-web-app' from resource group 'prod-rg'.", cmd:"az webapp delete --name my-web-app --resource-group prod-rg" },
   { cat:"App Services", desc:"Configure deployment from a GitHub repo for web app 'my-web-app' on branch 'main'.", cmd:"az webapp deployment source config --name my-web-app --resource-group prod-rg --repo-url https://github.com/myorg/myrepo --branch main" },
-
-  // Functions
   { cat:"Functions", desc:"Create a Function App named 'prod-funcapp' in resource group 'prod-rg' using storage account 'prodstorageacct' with Node.js 18 runtime.", cmd:"az functionapp create --name prod-funcapp --resource-group prod-rg --storage-account prodstorageacct --runtime node --runtime-version 18 --consumption-plan-location eastus" },
   { cat:"Functions", desc:"List all Function Apps in resource group 'prod-rg'.", cmd:"az functionapp list --resource-group prod-rg" },
   { cat:"Functions", desc:"Restart Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp restart --name prod-funcapp --resource-group prod-rg" },
@@ -201,8 +191,6 @@ const allCards = [
   { cat:"Functions", desc:"Stop Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp stop --name prod-funcapp --resource-group prod-rg" },
   { cat:"Functions", desc:"Start Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp start --name prod-funcapp --resource-group prod-rg" },
   { cat:"Functions", desc:"List all functions inside Function App 'prod-funcapp' in resource group 'prod-rg'.", cmd:"az functionapp function list --name prod-funcapp --resource-group prod-rg" },
-
-  // Container Instances
   { cat:"Container Instances", desc:"Create a container instance named 'api-container' in resource group 'prod-rg' using image 'nginx' with 1 CPU and 1.5GB memory.", cmd:"az container create --name api-container --resource-group prod-rg --image nginx --cpu 1 --memory 1.5" },
   { cat:"Container Instances", desc:"List all container instances in resource group 'prod-rg'.", cmd:"az container list --resource-group prod-rg" },
   { cat:"Container Instances", desc:"Show logs from container instance 'api-container' in resource group 'prod-rg'.", cmd:"az container logs --name api-container --resource-group prod-rg" },
@@ -210,8 +198,6 @@ const allCards = [
   { cat:"Container Instances", desc:"Show the status and IP address of container instance 'api-container' in resource group 'prod-rg'.", cmd:"az container show --name api-container --resource-group prod-rg" },
   { cat:"Container Instances", desc:"Restart container instance 'api-container' in resource group 'prod-rg'.", cmd:"az container restart --name api-container --resource-group prod-rg" },
   { cat:"Container Instances", desc:"Execute a bash shell inside container instance 'api-container' in resource group 'prod-rg'.", cmd:"az container exec --name api-container --resource-group prod-rg --exec-command /bin/bash" },
-
-  // ACR
   { cat:"ACR", desc:"Create a container registry named 'prodregistry' in resource group 'prod-rg' with Standard SKU.", cmd:"az acr create --name prodregistry --resource-group prod-rg --sku Standard" },
   { cat:"ACR", desc:"Build a Docker image named 'myapp' tagged 'v1.0' from the current directory and push it to registry 'prodregistry'.", cmd:"az acr build --registry prodregistry --image myapp:v1.0 ." },
   { cat:"ACR", desc:"Log your local Docker client in to registry 'prodregistry'.", cmd:"az acr login --name prodregistry" },
@@ -223,8 +209,6 @@ const allCards = [
   { cat:"ACR", desc:"List all registries in resource group 'prod-rg'.", cmd:"az acr list --resource-group prod-rg" },
   { cat:"ACR", desc:"Show the admin credentials for registry 'prodregistry'.", cmd:"az acr credential show --name prodregistry" },
   { cat:"ACR", desc:"Run a quick task to test an image in registry 'prodregistry' without a Dockerfile.", cmd:"az acr run --registry prodregistry --cmd myapp:v1.0 /dev/null" },
-
-  // AKS
   { cat:"AKS", desc:"Create an AKS cluster named 'prod-cluster' in resource group 'prod-rg' with 3 nodes.", cmd:"az aks create --name prod-cluster --resource-group prod-rg --node-count 3" },
   { cat:"AKS", desc:"Download kubeconfig credentials for cluster 'prod-cluster' in resource group 'prod-rg' so kubectl can connect.", cmd:"az aks get-credentials --name prod-cluster --resource-group prod-rg" },
   { cat:"AKS", desc:"Scale cluster 'prod-cluster' in resource group 'prod-rg' to 5 nodes.", cmd:"az aks scale --name prod-cluster --resource-group prod-rg --node-count 5" },
@@ -239,8 +223,6 @@ const allCards = [
   { cat:"AKS", desc:"Delete AKS cluster 'prod-cluster' from resource group 'prod-rg'.", cmd:"az aks delete --name prod-cluster --resource-group prod-rg" },
   { cat:"AKS", desc:"Add a new node pool named 'gpupool' to cluster 'prod-cluster' in resource group 'prod-rg' with 2 nodes.", cmd:"az aks nodepool add --name gpupool --cluster-name prod-cluster --resource-group prod-rg --node-count 2" },
   { cat:"AKS", desc:"List all node pools in AKS cluster 'prod-cluster' in resource group 'prod-rg'.", cmd:"az aks nodepool list --cluster-name prod-cluster --resource-group prod-rg" },
-
-  // Key Vault
   { cat:"Key Vault", desc:"Create a Key Vault named 'prod-keyvault' in resource group 'prod-rg' located in East US.", cmd:"az keyvault create --name prod-keyvault --resource-group prod-rg --location eastus" },
   { cat:"Key Vault", desc:"Store a secret named 'DatabasePassword' with value 'P@ssword123' in Key Vault 'prod-keyvault'.", cmd:"az keyvault secret set --vault-name prod-keyvault --name DatabasePassword --value P@ssword123" },
   { cat:"Key Vault", desc:"Retrieve the secret named 'DatabasePassword' from Key Vault 'prod-keyvault'.", cmd:"az keyvault secret show --vault-name prod-keyvault --name DatabasePassword" },
@@ -251,8 +233,6 @@ const allCards = [
   { cat:"Key Vault", desc:"List all Key Vaults in resource group 'prod-rg'.", cmd:"az keyvault list --resource-group prod-rg" },
   { cat:"Key Vault", desc:"Recover a soft-deleted Key Vault named 'prod-keyvault' in East US.", cmd:"az keyvault recover --name prod-keyvault --location eastus" },
   { cat:"Key Vault", desc:"Create a certificate named 'prod-cert' in Key Vault 'prod-keyvault' using a policy file.", cmd:"az keyvault certificate create --vault-name prod-keyvault --name prod-cert --policy @policy.json" },
-
-  // Service Bus
   { cat:"Service Bus", desc:"Create a Service Bus namespace named 'prod-servicebus' in resource group 'prod-rg' with Standard SKU.", cmd:"az servicebus namespace create --name prod-servicebus --resource-group prod-rg --sku Standard" },
   { cat:"Service Bus", desc:"Create a queue named 'order-queue' inside Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus queue create --name order-queue --namespace-name prod-servicebus --resource-group prod-rg" },
   { cat:"Service Bus", desc:"List all queues in Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus queue list --namespace-name prod-servicebus --resource-group prod-rg" },
@@ -261,8 +241,6 @@ const allCards = [
   { cat:"Service Bus", desc:"Show the primary connection string for Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus namespace authorization-rule keys list --name RootManageSharedAccessKey --namespace-name prod-servicebus --resource-group prod-rg" },
   { cat:"Service Bus", desc:"Delete queue 'order-queue' from Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus queue delete --name order-queue --namespace-name prod-servicebus --resource-group prod-rg" },
   { cat:"Service Bus", desc:"List all topics in Service Bus namespace 'prod-servicebus'.", cmd:"az servicebus topic list --namespace-name prod-servicebus --resource-group prod-rg" },
-
-  // Pipelines
   { cat:"Pipelines", desc:"Set default Azure DevOps org to 'https://dev.azure.com/myorg' and project to 'myproject'.", cmd:"az devops configure --defaults organization=https://dev.azure.com/myorg project=myproject" },
   { cat:"Pipelines", desc:"Create a pipeline named 'deploy-pipeline' from YAML file 'pipelines/deploy.yml'.", cmd:"az pipelines create --name deploy-pipeline --yml-path pipelines/deploy.yml" },
   { cat:"Pipelines", desc:"Manually trigger a run of pipeline 'deploy-pipeline' on branch 'main'.", cmd:"az pipelines run --name deploy-pipeline --branch main" },
@@ -275,8 +253,6 @@ const allCards = [
   { cat:"Pipelines", desc:"List all variable groups in the current Azure DevOps project.", cmd:"az pipelines variable-group list" },
   { cat:"Pipelines", desc:"Delete pipeline variable 'DB_PASSWORD' from pipeline 'deploy-pipeline'.", cmd:"az pipelines variable delete --name DB_PASSWORD --pipeline-name deploy-pipeline" },
   { cat:"Pipelines", desc:"Show details of Azure DevOps project 'myproject'.", cmd:"az devops project show --project myproject" },
-
-  // RBAC
   { cat:"RBAC", desc:"Assign the 'Contributor' role to user 'user@company.com' scoped to resource group 'prod-rg'.", cmd:"az role assignment create --assignee user@company.com --role Contributor --resource-group prod-rg" },
   { cat:"RBAC", desc:"List all role assignments in resource group 'prod-rg'.", cmd:"az role assignment list --resource-group prod-rg" },
   { cat:"RBAC", desc:"Remove the 'Contributor' role from user 'user@company.com' scoped to resource group 'prod-rg'.", cmd:"az role assignment delete --assignee user@company.com --role Contributor --resource-group prod-rg" },
@@ -285,8 +261,6 @@ const allCards = [
   { cat:"RBAC", desc:"Assign the 'AcrPull' role to managed identity 'prod-identity' scoped to registry 'prodregistry'.", cmd:"az role assignment create --assignee prod-identity --role AcrPull --scope /subscriptions/mysub/resourceGroups/prod-rg/providers/Microsoft.ContainerRegistry/registries/prodregistry" },
   { cat:"RBAC", desc:"List all role assignments for user 'user@company.com' across the subscription.", cmd:"az role assignment list --assignee user@company.com" },
   { cat:"RBAC", desc:"Create a custom role definition from a JSON file named 'custom-role.json'.", cmd:"az role definition create --role-definition custom-role.json" },
-
-  // Managed Identity
   { cat:"Managed Identity", desc:"Create a user-assigned managed identity named 'prod-identity' in resource group 'prod-rg'.", cmd:"az identity create --name prod-identity --resource-group prod-rg" },
   { cat:"Managed Identity", desc:"List all user-assigned managed identities in resource group 'prod-rg'.", cmd:"az identity list --resource-group prod-rg" },
   { cat:"Managed Identity", desc:"Show the client ID and principal ID of managed identity 'prod-identity' in resource group 'prod-rg'.", cmd:"az identity show --name prod-identity --resource-group prod-rg" },
@@ -295,8 +269,6 @@ const allCards = [
   { cat:"Managed Identity", desc:"Assign user-assigned managed identity 'prod-identity' to web app 'my-web-app' in resource group 'prod-rg'.", cmd:"az webapp identity assign --name my-web-app --resource-group prod-rg --identities prod-identity" },
   { cat:"Managed Identity", desc:"Remove a managed identity from VM 'web-vm' in resource group 'prod-rg'.", cmd:"az vm identity remove --name web-vm --resource-group prod-rg --identities prod-identity" },
   { cat:"Managed Identity", desc:"Delete managed identity 'prod-identity' from resource group 'prod-rg'.", cmd:"az identity delete --name prod-identity --resource-group prod-rg" },
-
-  // Monitor
   { cat:"Monitor", desc:"Create a Log Analytics workspace named 'prod-logs' in resource group 'prod-rg'.", cmd:"az monitor log-analytics workspace create --workspace-name prod-logs --resource-group prod-rg" },
   { cat:"Monitor", desc:"List CPU percentage metrics for a VM using its full resource ID.", cmd:"az monitor metrics list --resource /subscriptions/mysub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/web-vm --metric \"Percentage CPU\"" },
   { cat:"Monitor", desc:"Create a metrics alert rule named 'high-cpu-alert' that fires when average CPU on a VM exceeds 90%.", cmd:"az monitor metrics alert create --name high-cpu-alert --resource-group prod-rg --scopes /subscriptions/mysub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/web-vm --condition \"avg Percentage CPU > 90\" --description High CPU" },
@@ -305,8 +277,6 @@ const allCards = [
   { cat:"Monitor", desc:"Show the Log Analytics workspace named 'prod-logs' in resource group 'prod-rg'.", cmd:"az monitor log-analytics workspace show --workspace-name prod-logs --resource-group prod-rg" },
   { cat:"Monitor", desc:"Delete Log Analytics workspace 'prod-logs' from resource group 'prod-rg'.", cmd:"az monitor log-analytics workspace delete --workspace-name prod-logs --resource-group prod-rg" },
   { cat:"Monitor", desc:"List all metric alert rules in resource group 'prod-rg'.", cmd:"az monitor metrics alert list --resource-group prod-rg" },
-
-  // App Config
   { cat:"App Config", desc:"Create an App Configuration store named 'prod-appconfig' in resource group 'prod-rg'.", cmd:"az appconfig create --name prod-appconfig --resource-group prod-rg --location eastus" },
   { cat:"App Config", desc:"Set key 'Settings:Theme' with value 'dark' in App Config store 'prod-appconfig'.", cmd:"az appconfig kv set --name prod-appconfig --key Settings:Theme --value dark" },
   { cat:"App Config", desc:"Show the value of key 'Settings:Theme' in App Config store 'prod-appconfig'.", cmd:"az appconfig kv show --name prod-appconfig --key Settings:Theme" },
@@ -314,16 +284,12 @@ const allCards = [
   { cat:"App Config", desc:"Delete key 'Settings:OldFlag' from App Config store 'prod-appconfig'.", cmd:"az appconfig kv delete --name prod-appconfig --key Settings:OldFlag" },
   { cat:"App Config", desc:"Show the connection string for App Config store 'prod-appconfig'.", cmd:"az appconfig credential list --name prod-appconfig --resource-group prod-rg" },
   { cat:"App Config", desc:"Export all key-values from App Config store 'prod-appconfig' to a JSON file named 'config.json'.", cmd:"az appconfig kv export --name prod-appconfig --destination file --path config.json --format json" },
-
-  // Redis
   { cat:"Redis", desc:"Create a Redis Cache instance named 'prod-redis' in resource group 'prod-rg' with Basic C0 SKU.", cmd:"az redis create --name prod-redis --resource-group prod-rg --location eastus --sku Basic --vm-size C0" },
   { cat:"Redis", desc:"Show the primary access key for Redis Cache 'prod-redis' in resource group 'prod-rg'.", cmd:"az redis list-keys --name prod-redis --resource-group prod-rg" },
   { cat:"Redis", desc:"List all Redis Cache instances in resource group 'prod-rg'.", cmd:"az redis list --resource-group prod-rg" },
   { cat:"Redis", desc:"Delete Redis Cache 'prod-redis' from resource group 'prod-rg'.", cmd:"az redis delete --name prod-redis --resource-group prod-rg" },
   { cat:"Redis", desc:"Show details of Redis Cache 'prod-redis' in resource group 'prod-rg'.", cmd:"az redis show --name prod-redis --resource-group prod-rg" },
   { cat:"Redis", desc:"Regenerate the primary key for Redis Cache 'prod-redis' in resource group 'prod-rg'.", cmd:"az redis regenerate-keys --name prod-redis --resource-group prod-rg --key-type Primary" },
-
-  // SQL
   { cat:"SQL", desc:"Create an Azure SQL server named 'prod-sqlserver' in resource group 'prod-rg' with admin login 'sqladmin'.", cmd:"az sql server create --name prod-sqlserver --resource-group prod-rg --location eastus --admin-user sqladmin --admin-password P@ssword123" },
   { cat:"SQL", desc:"Create a SQL database named 'prod-db' on server 'prod-sqlserver' in resource group 'prod-rg' with Standard S2 SKU.", cmd:"az sql db create --name prod-db --server prod-sqlserver --resource-group prod-rg --service-objective S2" },
   { cat:"SQL", desc:"List all databases on SQL server 'prod-sqlserver' in resource group 'prod-rg'.", cmd:"az sql db list --server prod-sqlserver --resource-group prod-rg" },
@@ -332,8 +298,6 @@ const allCards = [
   { cat:"SQL", desc:"Delete database 'prod-db' from SQL server 'prod-sqlserver' in resource group 'prod-rg'.", cmd:"az sql db delete --name prod-db --server prod-sqlserver --resource-group prod-rg" },
   { cat:"SQL", desc:"List all SQL servers in resource group 'prod-rg'.", cmd:"az sql server list --resource-group prod-rg" },
   { cat:"SQL", desc:"Show details of SQL server 'prod-sqlserver' in resource group 'prod-rg'.", cmd:"az sql server show --name prod-sqlserver --resource-group prod-rg" },
-
-  // IaC
   { cat:"IaC", desc:"Compile a Bicep file named 'main.bicep' into an ARM JSON template.", cmd:"az bicep build --file main.bicep" },
   { cat:"IaC", desc:"Validate Bicep file 'main.bicep' against resource group 'prod-rg' without deploying.", cmd:"az deployment group validate --resource-group prod-rg --template-file main.bicep" },
   { cat:"IaC", desc:"Deploy Bicep file 'main.bicep' to resource group 'prod-rg'.", cmd:"az deployment group create --resource-group prod-rg --template-file main.bicep" },
@@ -344,8 +308,6 @@ const allCards = [
   { cat:"IaC", desc:"Install or upgrade the Bicep CLI to the latest version.", cmd:"az bicep install" },
   { cat:"IaC", desc:"Preview what changes a deployment of 'main.bicep' would make to resource group 'prod-rg' using what-if.", cmd:"az deployment group what-if --resource-group prod-rg --template-file main.bicep" },
   { cat:"IaC", desc:"Cancel an in-progress deployment named 'main' in resource group 'prod-rg'.", cmd:"az deployment group cancel --name main --resource-group prod-rg" },
-
-  // Misc
   { cat:"Misc", desc:"List all resources in resource group 'prod-rg'.", cmd:"az resource list --resource-group prod-rg" },
   { cat:"Misc", desc:"Show help for the 'az vm' command group.", cmd:"az vm --help" },
   { cat:"Misc", desc:"Show the currently installed version of the AZ CLI.", cmd:"az version" },
@@ -361,7 +323,6 @@ const allCards = [
   { cat:"Misc", desc:"Search for AZ CLI extensions related to 'devops'.", cmd:"az extension list-available --query \"[?contains(name,'devops')]\"" },
 ];
 
-// ── State ─────────────────────────────────────────────────────────────────
 const cats = ['All', ...new Set(allCards.map(c => c.cat))];
 let activeFilter = 'All';
 let deck = [];
@@ -371,21 +332,16 @@ let cardComplete = false;
 let answerHidden = false;
 let prevRank = getRank(0);
 
-// ── Helpers ───────────────────────────────────────────────────────────────
 function numCompleted() { return completedCmds.size; }
-
-function getFiltered() {
-  return activeFilter === 'All' ? [...allCards] : allCards.filter(c => c.cat === activeFilter);
-}
+function getFiltered() { return activeFilter === 'All' ? [...allCards] : allCards.filter(c => c.cat === activeFilter); }
 
 function showRankUp(title) {
   const el = document.getElementById('rank-up');
-  el.textContent = `🎖 Rank up: ${title}`;
+  el.textContent = '🎖 Rank up: ' + title;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-// ── Storage ───────────────────────────────────────────────────────────────
 function saveProgress() {
   try {
     localStorage.setItem('azcli_completedCmds', JSON.stringify([...completedCmds]));
@@ -408,7 +364,6 @@ function loadProgress() {
   } catch(e) { return false; }
 }
 
-// ── UI ────────────────────────────────────────────────────────────────────
 function buildFilters() {
   const bar = document.getElementById('filter-bar');
   bar.innerHTML = '';
@@ -461,7 +416,7 @@ function renderCard() {
   const card = deck[idx];
   cardComplete = false;
   document.getElementById('card-tag').textContent = card.cat;
-  document.getElementById('card-num').textContent = `${idx + 1} / ${deck.length}`;
+  document.getElementById('card-num').textContent = (idx + 1) + ' / ' + deck.length;
   document.getElementById('card-desc').textContent = card.desc;
   document.getElementById('next-btn').style.display = 'none';
   document.getElementById('input-hint').textContent = '';
@@ -496,11 +451,22 @@ function skipCard() {
   saveProgress();
 }
 
+function restartCategory() {
+  deck = getFiltered();
+  deck.forEach(c => completedCmds.delete(c.cmd));
+  idx = 0;
+  document.getElementById('quiz-area').style.display = 'block';
+  document.getElementById('done-screen').style.display = 'none';
+  saveProgress();
+  renderCard();
+  updateStats();
+}
+
 function showDone() {
   document.getElementById('quiz-area').style.display = 'none';
   document.getElementById('done-screen').style.display = 'block';
   const doneInFilter = deck.filter(c => completedCmds.has(c.cmd)).length;
-  document.getElementById('done-msg').textContent = `You completed all ${doneInFilter} commands in this category. Rank: ${getRank(numCompleted())}`;
+  document.getElementById('done-msg').textContent = 'You completed all ' + doneInFilter + ' commands in this category. Rank: ' + getRank(numCompleted());
 }
 
 function resetDeck() {
@@ -515,7 +481,6 @@ function resetDeck() {
   updateStats();
 }
 
-// ── Input handler ─────────────────────────────────────────────────────────
 document.getElementById('typing-input').addEventListener('input', function() {
   if (cardComplete) return;
   const target = deck[idx].cmd;
@@ -547,7 +512,6 @@ document.getElementById('typing-input').addEventListener('keydown', function(e) 
   if (e.key === 'Enter' && cardComplete) nextCard();
 });
 
-// ── Init ──────────────────────────────────────────────────────────────────
 buildFilters();
 const restored = loadProgress();
 if (restored) {
