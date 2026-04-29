@@ -158,7 +158,7 @@ const allCards = [
   { cat:"Networking", desc:"List all subnets inside virtual network 'prod-vnet' in resource group 'prod-rg'.", cmd:"az network vnet subnet list --vnet-name prod-vnet --resource-group prod-rg" },
   { cat:"Networking", desc:"Show details of public IP 'prod-pip' in resource group 'prod-rg'.", cmd:"az network public-ip show --name prod-pip --resource-group prod-rg" },
   { cat:"Networking", desc:"Create a load balancer named 'prod-lb' in resource group 'prod-rg' with a public IP named 'prod-pip'.", cmd:"az network lb create --name prod-lb --resource-group prod-rg --public-ip-address prod-pip" },
-  { cat:"Networking", desc:"Create a private endpoint named 'prod-pe' in resource group 'prod-rg' inside subnet 'app-subnet'.", cmd:"az network private-endpoint create --name prod-pe --resource-group prod-rg --vnet-name prod-vnet --subnet app-subnet --private-connection-resource-id myresourceid --connection-name myconn" },
+  { cat:"Networking", desc:"Create a private endpoint named 'prod-pe' in resource group 'prod-rg' inside subnet 'app-subnet' connected to a resource.", cmd:"az network private-endpoint create --name prod-pe --resource-group prod-rg --vnet-name prod-vnet --subnet app-subnet --private-connection-resource-id myresourceid --connection-name myconn --group-id sites" },
   { cat:"Networking", desc:"List all NSG rules for security group 'web-nsg' in resource group 'prod-rg'.", cmd:"az network nsg rule list --nsg-name web-nsg --resource-group prod-rg" },
 
   // Storage
@@ -297,8 +297,8 @@ const allCards = [
 
   // Monitor
   { cat:"Monitor", desc:"Create a Log Analytics workspace named 'prod-logs' in resource group 'prod-rg'.", cmd:"az monitor log-analytics workspace create --workspace-name prod-logs --resource-group prod-rg" },
-  { cat:"Monitor", desc:"List CPU percentage metrics for VM 'web-vm' in resource group 'prod-rg'.", cmd:"az monitor metrics list --resource web-vm --resource-group prod-rg --metric Percentage CPU" },
-  { cat:"Monitor", desc:"Create an alert rule named 'high-cpu-alert' in resource group 'prod-rg'.", cmd:"az monitor alert create --name high-cpu-alert --resource-group prod-rg" },
+  { cat:"Monitor", desc:"List CPU percentage metrics for a VM using its full resource ID.", cmd:"az monitor metrics list --resource /subscriptions/mysub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/web-vm --metric \"Percentage CPU\"" },
+  { cat:"Monitor", desc:"Create a metrics alert rule named 'high-cpu-alert' that fires when average CPU on a VM exceeds 90%.", cmd:"az monitor metrics alert create --name high-cpu-alert --resource-group prod-rg --scopes /subscriptions/mysub/resourceGroups/prod-rg/providers/Microsoft.Compute/virtualMachines/web-vm --condition \"avg Percentage CPU > 90\" --description High CPU" },
   { cat:"Monitor", desc:"Create a diagnostic setting named 'prod-diag' on VM 'web-vm' sending logs to workspace 'prod-logs'.", cmd:"az monitor diagnostic-settings create --name prod-diag --resource web-vm --workspace prod-logs" },
   { cat:"Monitor", desc:"List all activity log events in resource group 'prod-rg' from the last 24 hours.", cmd:"az monitor activity-log list --resource-group prod-rg" },
   { cat:"Monitor", desc:"Show the Log Analytics workspace named 'prod-logs' in resource group 'prod-rg'.", cmd:"az monitor log-analytics workspace show --workspace-name prod-logs --resource-group prod-rg" },
