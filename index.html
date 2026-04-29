@@ -389,26 +389,20 @@ function showRankUp(title) {
 function saveProgress() {
   try {
     localStorage.setItem('azcli_completedCmds', JSON.stringify([...completedCmds]));
-    localStorage.setItem('azcli_idx', idx);
     localStorage.setItem('azcli_filter', activeFilter);
-    localStorage.setItem('azcli_deck', JSON.stringify(deck.map(c => c.cmd)));
   } catch(e) {}
 }
 
 function loadProgress() {
   try {
     const savedFilter = localStorage.getItem('azcli_filter');
-    const savedIdx = localStorage.getItem('azcli_idx');
-    const savedDeckCmds = localStorage.getItem('azcli_deck');
     const savedCompleted = localStorage.getItem('azcli_completedCmds');
-    if (!savedDeckCmds) return false;
+    if (!savedCompleted) return false;
     activeFilter = savedFilter || 'All';
-    const cmdOrder = JSON.parse(savedDeckCmds);
-    deck = cmdOrder.map(cmd => allCards.find(c => c.cmd === cmd)).filter(Boolean);
-    if (deck.length === 0) return false;
-    completedCmds = new Set(savedCompleted ? JSON.parse(savedCompleted) : []);
-    idx = parseInt(savedIdx) || 0;
-    if (idx >= deck.length) idx = 0;
+    completedCmds = new Set(JSON.parse(savedCompleted));
+    deck = getFiltered();
+    idx = deck.findIndex(c => !completedCmds.has(c.cmd));
+    if (idx === -1) idx = 0;
     prevRank = getRank(numCompleted());
     return true;
   } catch(e) { return false; }
@@ -490,16 +484,16 @@ function toggleHide() {
 function nextCard() {
   idx++;
   while (idx < deck.length && completedCmds.has(deck[idx].cmd)) idx++;
-  saveProgress();
   renderCard();
+  saveProgress();
 }
 
 function skipCard() {
   const card = deck.splice(idx, 1)[0];
   deck.push(card);
   if (idx >= deck.length) idx = 0;
-  saveProgress();
   renderCard();
+  saveProgress();
 }
 
 function showDone() {
